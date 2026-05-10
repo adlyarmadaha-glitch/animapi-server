@@ -22,7 +22,7 @@ app.get("/otakudesu/search", async (req, res) => {
 });
 
 app.get("/otakudesu/latest", async (req, res) => {
-  try { res.json(await otakudesu.getLatest()); }
+  try { res.json(await otakudesu.search()); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -32,7 +32,7 @@ app.get("/animasu/search", async (req, res) => {
 });
 
 app.get("/animasu/latest", async (req, res) => {
-  try { res.json(await animasu.getLatest()); }
+  try { res.json(await animasu.search()); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -42,7 +42,7 @@ app.get("/animeindo/search", async (req, res) => {
 });
 
 app.get("/animeindo/latest", async (req, res) => {
-  try { res.json(await animeindo.getLatest()); }
+  try { res.json(await animeindo.search()); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
