@@ -13,7 +13,16 @@ const animasu = new Animasu();
 const animeindo = new AnimeIndo();
 
 app.get("/", (req, res) => {
-  res.json({ message: "Animapi REST API v1" });
+  res.json({ message: "Animapi REST API v1", endpoints: [
+    "/otakudesu/search?q=",
+    "/otakudesu/detail/:slug",
+    "/otakudesu/genres",
+    "/otakudesu/streams/:slug",
+    "/animasu/search?q=",
+    "/animasu/detail/:slug",
+    "/animeindo/search?q=",
+    "/animeindo/detail/:slug",
+  ]});
 });
 
 app.get("/otakudesu/search", async (req, res) => {
@@ -33,16 +42,6 @@ app.get("/otakudesu/genres", async (req, res) => {
 
 app.get("/otakudesu/streams/:slug", async (req, res) => {
   try { res.json(await otakudesu.streams(req.params.slug)); }
-  catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-app.get("/otakudesu/schedule/:day", async (req, res) => {
-  try { res.json(await otakudesu.searchByDay(req.params.day as any)); }
-  catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-app.get("/otakudesu/alphabet/:alphabet", async (req, res) => {
-  try { res.json(await otakudesu.searchByAlphabet(req.params.alphabet)); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
