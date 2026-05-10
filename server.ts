@@ -13,21 +13,9 @@ const animasu = new Animasu();
 const animeindo = new AnimeIndo();
 
 app.get("/", (req, res) => {
-  res.json({ message: "Animapi REST API v1", endpoints: [
-    "/otakudesu/search?q=",
-    "/otakudesu/detail/:slug",
-    "/otakudesu/genres",
-    "/otakudesu/streams/:slug",
-    "/otakudesu/schedule/:day",
-    "/otakudesu/alphabet/:alphabet",
-    "/animasu/search?q=",
-    "/animasu/detail/:slug",
-    "/animeindo/search?q=",
-    "/animeindo/detail/:slug",
-  ]});
+  res.json({ message: "Animapi REST API v1" });
 });
 
-// OTAKUDESU
 app.get("/otakudesu/search", async (req, res) => {
   try { res.json(await otakudesu.search({ filter: { keyword: req.query.q as string } })); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -58,7 +46,6 @@ app.get("/otakudesu/alphabet/:alphabet", async (req, res) => {
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-// ANIMASU
 app.get("/animasu/search", async (req, res) => {
   try { res.json(await animasu.search({ filter: { keyword: req.query.q as string } })); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -69,7 +56,6 @@ app.get("/animasu/detail/:slug", async (req, res) => {
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-// ANIMEINDO
 app.get("/animeindo/search", async (req, res) => {
   try { res.json(await animeindo.search({ filter: { keyword: req.query.q as string } })); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
