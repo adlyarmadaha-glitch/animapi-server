@@ -13,36 +13,70 @@ const animasu = new Animasu();
 const animeindo = new AnimeIndo();
 
 app.get("/", (req, res) => {
-  res.json({ message: "Animapi REST API v1", routes: ["/otakudesu/search?q=", "/otakudesu/latest", "/animasu/search?q=", "/animasu/latest", "/animeindo/search?q=", "/animeindo/latest"] });
+  res.json({ message: "Animapi REST API v1", endpoints: [
+    "/otakudesu/search?q=",
+    "/otakudesu/detail/:slug",
+    "/otakudesu/genres",
+    "/otakudesu/streams/:slug",
+    "/otakudesu/schedule/:day",
+    "/otakudesu/alphabet/:alphabet",
+    "/animasu/search?q=",
+    "/animasu/detail/:slug",
+    "/animeindo/search?q=",
+    "/animeindo/detail/:slug",
+  ]});
 });
 
+// OTAKUDESU
 app.get("/otakudesu/search", async (req, res) => {
   try { res.json(await otakudesu.search({ filter: { keyword: req.query.q as string } })); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-app.get("/otakudesu/latest", async (req, res) => {
-  try { res.json(await otakudesu.search()); }
+app.get("/otakudesu/detail/:slug", async (req, res) => {
+  try { res.json(await otakudesu.detail(req.params.slug)); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+app.get("/otakudesu/genres", async (req, res) => {
+  try { res.json(await otakudesu.genres()); }
+  catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/otakudesu/streams/:slug", async (req, res) => {
+  try { res.json(await otakudesu.streams(req.params.slug)); }
+  catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/otakudesu/schedule/:day", async (req, res) => {
+  try { res.json(await otakudesu.searchByDay(req.params.day as any)); }
+  catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/otakudesu/alphabet/:alphabet", async (req, res) => {
+  try { res.json(await otakudesu.searchByAlphabet(req.params.alphabet)); }
+  catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// ANIMASU
 app.get("/animasu/search", async (req, res) => {
   try { res.json(await animasu.search({ filter: { keyword: req.query.q as string } })); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-app.get("/animasu/latest", async (req, res) => {
-  try { res.json(await animasu.search()); }
+app.get("/animasu/detail/:slug", async (req, res) => {
+  try { res.json(await animasu.detail(req.params.slug)); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+// ANIMEINDO
 app.get("/animeindo/search", async (req, res) => {
   try { res.json(await animeindo.search({ filter: { keyword: req.query.q as string } })); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-app.get("/animeindo/latest", async (req, res) => {
-  try { res.json(await animeindo.search()); }
+app.get("/animeindo/detail/:slug", async (req, res) => {
+  try { res.json(await animeindo.detail(req.params.slug)); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
