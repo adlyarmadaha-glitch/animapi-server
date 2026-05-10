@@ -13,7 +13,7 @@ import {
 export class AnimeIndo extends Provider {
   constructor(options?: ProviderOptions) {
     super("anime-indo", {
-      baseUrl: "https://anime-indo.lol",
+      baseUrl: "https://anime-indo.net",
       cache: true,
       ...options,
     });
