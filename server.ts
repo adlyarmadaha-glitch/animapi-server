@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import { Otakudesu, Animasu, AnimeIndo } from "./index.js";
+import { Otakudesu } from "./index.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -9,17 +9,22 @@ app.use(express.json());
 
 const otakudesu = new Otakudesu();
 
-// HOME
+// HOME - ongoing + complete gabung
 app.get("/otakudesu/home", async (req, res) => {
-  try { res.json(await otakudesu.search({ filter: { keyword: "" } })); }
-  catch (e: any) { res.status(500).json({ error: e.message }); }
+  try {
+    const [ongoing, complete] = await Promise.all([
+      otakudesu.search({ filter: { status: "Ongoing" } } as any),
+      otakudesu.search({ filter: { status: "Completed" } } as any),
+    ]);
+    res.json({ ongoing, complete });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 // ONGOING
 app.get("/otakudesu/ongoing", async (req, res) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
-    res.json(await otakudesu.search({ filter: { keyword: "" }, page }));
+    res.json(await otakudesu.search({ filter: { status: "Ongoing" }, page } as any));
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -27,7 +32,7 @@ app.get("/otakudesu/ongoing", async (req, res) => {
 app.get("/otakudesu/complete", async (req, res) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
-    res.json(await otakudesu.search({ filter: { keyword: "" }, page }));
+    res.json(await otakudesu.search({ filter: { status: "Completed" }, page } as any));
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -43,7 +48,7 @@ app.get("/otakudesu/anime/:slug", async (req, res) => {
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-// EPISODE
+// EPISODE / STREAMING
 app.get("/otakudesu/episode/:slug", async (req, res) => {
   try { res.json(await otakudesu.streams(req.params.slug)); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -57,8 +62,10 @@ app.get("/otakudesu/genre", async (req, res) => {
 
 // GENRE DETAIL
 app.get("/otakudesu/genre/:slug", async (req, res) => {
-  try { res.json(await otakudesu.search({ filter: { keyword: req.params.slug } })); }
-  catch (e: any) { res.status(500).json({ error: e.message }); }
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    res.json(await otakudesu.search({ filter: { genres: [req.params.slug] }, page } as any));
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.get("/", (req, res) => {
@@ -70,7 +77,7 @@ app.get("/", (req, res) => {
     "/otakudesu/anime/:slug",
     "/otakudesu/episode/:slug",
     "/otakudesu/genre",
-    "/otakudesu/genre/:slug",
+    "/otakudesu/genre/:slug?page=1",
   ]});
 });
 
