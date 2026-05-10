@@ -225,13 +225,27 @@ app.get("/anime/anime/:slug", async (req, res) => {
 });
 
 app.get("/anime/episode/:slug", async (req, res) => {
-  const key = `episode-${req.params.slug}`;
+  const slug = req.params.slug;
+  const key = `episode-${slug}`;
   const cached = getCache(key);
   if (cached) return res.json(cached);
-  try {
-    let streams: any[] = [];
-    try { const r: any = await animasu.streams(req.params.slug); streams = Array.isArray(r) ? r : (r.streams || []); } catch(e1) {}
-    const result = { status: 'success', data: { animeId: req.params.slug, defaultStreamingUrl: streams[0]?.url || '', server: { qualities: streams.reduce((acc: any, s: any) => { const q = acc.find((x: any) => x.title === s.name); if (q) q.serverList.push({ title: s.source, url: s.url }); else acc.push({ title: s.name, serverList: [{ title: s.source, url: s.url }] }); return acc; }, []) } } };
+  const tryStreams = async (source: string, fetcher: (slug: string) => Promise<any>) => {
+    try {
+      const raw = await fetcher(slug);
+      console.log(`[${source}] raw:`, JSON.stringify(raw).substring(0,200));
+      const streams = Array.isArray(raw) ? raw : raw?.streams || [];
+      if (streams.length) return streams;
+    } catch (err: any) {
+      console.error(`[${source}] ERROR:`, err.message, err.status || err.code);
+    }
+    return [];
+  };
+  let streams: any[] = [];
+  const qualities = streams.reduce((acc: any[], s: any) => { const existing = acc.find(q => q.title === s.name); if (existing) existing.serverList.push({ title: s.source, url: s.url }); else acc.push({ title: s.name, serverList: [{ title: s.source, url: s.url }] }); return acc; }, []);
+  const result = { status: 'success', data: { animeId: slug, defaultStreamingUrl: streams[0]?.url || '', server: { qualities } } };
+  setCache(key, result);
+  res.json(result);
+}); else acc.push({ title: s.name, serverList: [{ title: s.source, url: s.url }] }); return acc; }, []) } } };
     setCache(key, result);
     res.json(result);
   } catch(e: any) { res.status(500).json({ error: e.message }); }
