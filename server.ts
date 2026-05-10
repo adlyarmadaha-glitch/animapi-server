@@ -328,3 +328,4 @@ app.get("/anime/server/:serverId", async (req, res) => {
 });
 
 app.listen(PORT, () => console.log("Server jalan di port " + PORT));
+// redeploy Sun May 10 03:00:54 PM UTC 2026
