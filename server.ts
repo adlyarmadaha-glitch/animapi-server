@@ -230,18 +230,30 @@ app.get("/anime/episode/:slug", async (req, res) => {
   if (cached) return res.json(cached);
   try {
     let data: any;
-    try { data = await animasu.streams(req.params.slug); }
-    catch { try { data = await otakudesu.streams(req.params.slug); }
-    catch { data = await animeindo.streams(req.params.slug); } }
+    let streams: any[] = [];
+    try {
+      const raw = await animasu.streams(req.params.slug);
+      streams = Array.isArray(raw) ? raw : (raw.streams || []);
+    } catch {
+      try {
+        const raw = await otakudesu.streams(req.params.slug);
+        streams = Array.isArray(raw) ? raw : (raw.streams || []);
+      } catch {
+        try {
+          const raw = await animeindo.streams(req.params.slug);
+          streams = Array.isArray(raw) ? raw : (raw.streams || []);
+        } catch {}
+      }
+    }
     const result = { status:"success", data:{
-      title: data.title || "", animeId: req.params.slug,
-      defaultStreamingUrl: data.streams?.[0]?.url || "",
-      server: { qualities: data.streams?.reduce((acc:any, s:any) => {
+      title: "", animeId: req.params.slug,
+      defaultStreamingUrl: streams[0]?.url || "",
+      server: { qualities: streams.reduce((acc:any, s:any) => {
         const q = acc.find((x:any) => x.title === s.name);
         if(q) q.serverList.push({ title: s.source, url: s.url });
         else acc.push({ title: s.name, serverList: [{ title: s.source, url: s.url }] });
         return acc;
-      }, []) || [] }
+      }, []) }
     }};
     setCache(key, result);
     res.json(result);
