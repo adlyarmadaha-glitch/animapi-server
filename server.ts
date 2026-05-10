@@ -230,8 +230,8 @@ app.get("/anime/episode/:slug", async (req, res) => {
   if (cached) return res.json(cached);
   try {
     let data: any;
-    try { data = await otakudesu.streams(req.params.slug); }
-    catch { try { data = await animasu.streams(req.params.slug); }
+    try { data = await animasu.streams(req.params.slug); }
+    catch { try { data = await otakudesu.streams(req.params.slug); }
     catch { data = await animeindo.streams(req.params.slug); } }
     const result = { status:"success", data:{
       title: data.title || "", animeId: req.params.slug,
