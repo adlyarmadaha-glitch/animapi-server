@@ -17,7 +17,7 @@ import { getEmbedUrl, getNonceCode } from "./helper";
 export class Otakudesu extends Provider {
   constructor(options?: ProviderOptions) {
     super("otakudesu", {
-      baseUrl: "https://otakudesu.blog",
+      baseUrl: "https://otakudesu.id",
       cache: true,
       ...options,
     });
