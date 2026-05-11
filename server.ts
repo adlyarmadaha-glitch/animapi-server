@@ -6,7 +6,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Cache sederhana
+// Cache
 const cache = new Map<string, { data: any; time: number }>();
 const CACHE_TTL = 5 * 60 * 1000;
 const getCache = (key: string) => {
@@ -16,8 +16,8 @@ const getCache = (key: string) => {
 };
 const setCache = (key: string, data: any) => cache.set(key, { data, time: Date.now() });
 
-// Dynamic import providers dengan fallback
-let Otakudesu: any, Animasu: any, AnimeIndo: any, Samehadaku: any, Anoboy: any, Jikan: any;
+// Provider instances
+let Otakudesu: any, Animasu: any, AnimeIndo: any, Samehadaku: any, Anoboy: any, Jikan: any, AniSkip: any;
 const providers: any[] = [];
 const streamProviders: any[] = [];
 
@@ -34,7 +34,7 @@ async function loadProviders() {
     ({ Animasu } = await import('./provider/animasu/index.js'));
     const animasu = new Animasu();
     providers.push(animasu);
-    streamProviders.splice(0, 0, animasu); // Animasu jadi prioritas utama untuk streaming
+    streamProviders.splice(0, 0, animasu);
     console.log('✅ Animasu loaded');
   } catch (e) { console.warn('⚠️ Animasu failed:', (e as Error).message); }
 
@@ -69,7 +69,14 @@ async function loadProviders() {
     console.log('✅ Jikan loaded');
   } catch (e) { console.warn('⚠️ Jikan failed:', (e as Error).message); }
 
-  console.log(`🚀 ${providers.length} providers loaded, ${streamProviders.length} for streaming`);
+  try {
+    ({ AniSkip } = await import('./provider/aniskip/index.js'));
+    const aniskip = new AniSkip();
+    providers.push(aniskip);
+    console.log('✅ AniSkip loaded');
+  } catch (e) { console.warn('⚠️ AniSkip failed:', (e as Error).message); }
+
+  console.log(`🚀 ${providers.length} providers ready`);
 }
 
 // Utility
@@ -133,12 +140,9 @@ const listEndpoint = (status: string) => async (req: express.Request, res: expre
   const cached = getCache(key);
   if (cached) return res.json(cached);
   const results = await Promise.allSettled(
-    providers.map(p => fetchWithTimeout(p.search({ filter: { status }, page })).catch(() => undefined))
+    providers.filter(p => p.search).map(p => fetchWithTimeout(p.search({ filter: { status }, page })).catch(() => undefined))
   );
-  const all = results
-    .filter(r => r.status === 'fulfilled')
-    .flatMap(r => (r.value?.animes || []))
-    .map(formatAnimeList);
+  const all = results.filter(r => r.status === 'fulfilled').flatMap(r => r.value?.animes || []).map(formatAnimeList);
   const hasNext = results.some(r => r.status === 'fulfilled' && r.value?.hasNext);
   const result = createResponse({ animeList: all }, { currentPage: page, hasNextPage: hasNext });
   setCache(key, result);
@@ -154,7 +158,7 @@ app.get('/anime/search/:keyword', async (req, res) => {
   const cached = getCache(key);
   if (cached) return res.json(cached);
   const results = await Promise.allSettled(
-    providers.map(p => fetchWithTimeout(p.search({ filter: { keyword: req.params.keyword } })).catch(() => undefined))
+    providers.filter(p => p.search).map(p => fetchWithTimeout(p.search({ filter: { keyword: req.params.keyword } })).catch(() => undefined))
   );
   const all = results.filter(r => r.status === 'fulfilled').flatMap(r => r.value?.animes || []).map(formatAnimeList);
   setCache(key, createResponse({ animeList: all }));
@@ -168,7 +172,7 @@ app.get('/anime/anime/:slug', async (req, res) => {
   const cached = getCache(key);
   if (cached) return res.json(cached);
   let data: any;
-  for (const p of providers) {
+  for (const p of providers.filter(p => p.detail)) {
     try { data = await fetchWithTimeout(p.detail(slug)); if (data?.title) break; } catch {}
   }
   if (!data?.title) return res.status(404).json({ status: "error", message: "Anime tidak ditemukan" });
@@ -204,15 +208,81 @@ app.get('/anime/episode/:slug', async (req, res) => {
     }
   });
   if (!allStreams.length) return res.status(502).json({ status: "error", message: "Stream tidak tersedia" });
-  const qualities = Array.from(
-    allStreams.reduce((map, s) => {
-      const qual = s.name || 'Unknown';
-      if (!map.has(qual)) map.set(qual, []);
-      map.get(qual)!.push({ title: s.provider, url: s.url });
-      return map;
-    }, new Map<string, any[]>())
-  ).map(([title, serverList]) => ({ title, serverList }));
+  const qualities = Array.from(allStreams.reduce((map, s) => {
+    const qual = s.name || 'Unknown';
+    if (!map.has(qual)) map.set(qual, []);
+    map.get(qual)!.push({ title: s.provider, url: s.url });
+    return map;
+  }, new Map<string, any[]>())).map(([title, serverList]) => ({ title, serverList }));
   res.json(createResponse({ animeId: slug, defaultStreamingUrl: allStreams[0]?.url || '', server: { qualities } }));
+});
+
+// ==================== ENDPOINT SKIP INTRO ====================
+app.get('/anime/skip/:slug', async (req, res) => {
+  const slug = req.params.slug;
+  const episode = parseInt(req.query.episode as string) || 1;
+  
+  // 1. Cari judul anime dari provider scraping
+  let animeTitle = '';
+  for (const p of providers.filter(p => p.detail && p.name !== 'jikan' && p.name !== 'aniskip')) {
+    try {
+      const detail = await fetchWithTimeout(p.detail(slug));
+      if (detail?.title) {
+        animeTitle = detail.title;
+        break;
+      }
+    } catch {}
+  }
+  
+  if (!animeTitle) {
+    return res.status(404).json({ status: "error", message: "Anime tidak ditemukan untuk slug ini" });
+  }
+
+  // 2. Cari MAL ID menggunakan Jikan
+  const jikanProvider = providers.find(p => p.name === 'jikan');
+  if (!jikanProvider) {
+    return res.status(500).json({ status: "error", message: "Jikan provider tidak tersedia" });
+  }
+
+  let malId: number | null = null;
+  try {
+    const searchResult = await fetchWithTimeout(jikanProvider.search({ filter: { keyword: animeTitle } }));
+    if (searchResult?.animes?.length > 0) {
+      // Ambil MAL ID dari hasil pertama (format slug: jikan-{mal_id})
+      const firstSlug = searchResult.animes[0].slug;
+      const match = firstSlug.match(/^jikan-(\d+)/);
+      if (match) {
+        malId = parseInt(match[1]);
+      }
+    }
+  } catch (e) {
+    return res.status(500).json({ status: "error", message: "Gagal mencari MAL ID" });
+  }
+
+  if (!malId) {
+    return res.status(404).json({ status: "error", message: "MAL ID tidak ditemukan" });
+  }
+
+  // 3. Ambil timestamp dari AniSkip
+  const aniskipProvider = providers.find(p => p.name === 'aniskip');
+  if (!aniskipProvider) {
+    return res.status(500).json({ status: "error", message: "AniSkip provider tidak tersedia" });
+  }
+
+  try {
+    const timestamps = await aniskipProvider.getTimestamps(malId, episode);
+    res.json(createResponse({
+      mal_id: malId,
+      episode,
+      skip_times: timestamps.map((t: any) => ({
+        type: t.skipType,
+        start: t.interval?.startTime,
+        end: t.interval?.endTime,
+      })),
+    }));
+  } catch (e: any) {
+    res.status(502).json({ status: "error", message: e.message || "Gagal mengambil timestamp" });
+  }
 });
 
 // Genre list
@@ -220,7 +290,7 @@ app.get('/anime/genre', async (req, res) => {
   const key = 'genre';
   const cached = getCache(key);
   if (cached) return res.json(cached);
-  const genreProviders = providers.filter(p => p.name !== 'jikan' || p.name !== 'samehadaku'); // filter yang punya genre
+  const genreProviders = providers.filter(p => p.name !== 'jikan' && p.name !== 'samehadaku');
   const results = await Promise.allSettled(
     genreProviders.map(p => fetchWithTimeout(p.genres()).catch(() => []))
   );
@@ -238,20 +308,20 @@ app.get('/anime/genre/:slug', async (req, res) => {
   const cached = getCache(key);
   if (cached) return res.json(cached);
   const results = await Promise.allSettled(
-    providers.map(p => fetchWithTimeout(p.search({ filter: { genres: [req.params.slug] }, page })).catch(() => undefined))
+    providers.filter(p => p.search).map(p => fetchWithTimeout(p.search({ filter: { genres: [req.params.slug] }, page })).catch(() => undefined))
   );
   const all = results.filter(r => r.status === 'fulfilled').flatMap(r => r.value?.animes || []).map(formatAnimeList);
   res.json(createResponse({ animeList: all }, { currentPage: page }));
 });
 
-// Schedule (via otakudesu)
+// Schedule
 app.get('/anime/schedule', async (req, res) => {
   const key = 'schedule';
   const cached = getCache(key);
   if (cached) return res.json(cached);
   try {
     const otakudesu = streamProviders.find(p => p.name === 'otakudesu');
-    if (!otakudesu) throw new Error('Otakudesu provider not available');
+    if (!otakudesu) throw new Error('Otakudesu tidak tersedia');
     const days = ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu', 'minggu'];
     const schedule = await Promise.all(days.map(async (day) => {
       try {
@@ -290,7 +360,7 @@ app.get('/anime/server/:serverId', (req, res) => {
 app.get('/anime/unlimited', async (req, res) => {
   try {
     const results = await Promise.allSettled(
-      providers.map(p => fetchWithTimeout(p.search({ filter: { keyword: '' } })).catch(() => undefined))
+      providers.filter(p => p.search).map(p => fetchWithTimeout(p.search({ filter: { keyword: '' } })).catch(() => undefined))
     );
     const all = results.filter(r => r.status === 'fulfilled').flatMap(r => r.value?.animes || []).map(formatAnimeList);
     res.json(createResponse({ animeList: all }));
@@ -306,11 +376,11 @@ app.get('/', (req, res) => {
       '/anime/search/:keyword', '/anime/anime/:slug', '/anime/episode/:slug',
       '/anime/genre', '/anime/genre/:slug', '/anime/schedule',
       '/anime/batch/:slug', '/anime/server/:serverId', '/anime/unlimited',
+      '/anime/skip/:slug?episode=1',
     ]
   });
 });
 
-// Start server setelah provider dimuat
 loadProviders().then(() => {
   app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server on port ${PORT}`));
 }).catch(err => {
