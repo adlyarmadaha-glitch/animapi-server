@@ -1,10 +1,8 @@
-// Simple in-memory cache, NO better-sqlite3
 class Cache {
   constructor(filePath, ttl = 3600) {
     this.store = new Map();
     this.ttl = ttl;
   }
-
   get(key) {
     const entry = this.store.get(key);
     if (!entry) return null;
@@ -14,10 +12,8 @@ class Cache {
     }
     return entry.data;
   }
-
   set(key, data) {
     this.store.set(key, { data, time: Date.now() });
   }
 }
-
 module.exports = { Cache };

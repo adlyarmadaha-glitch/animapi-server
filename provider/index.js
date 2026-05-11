@@ -13,11 +13,9 @@ class Provider {
     this.cheerio = cheerio;
     this.limit = pLimit(3);
   }
-
   async search(options) { throw new Error('Not implemented'); }
   async detail(slug) { throw new Error('Not implemented'); }
   async genres() { throw new Error('Not implemented'); }
   async streams(slug) { throw new Error('Not implemented'); }
 }
-
 module.exports = { Provider };
