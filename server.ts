@@ -237,13 +237,15 @@ app.get('/anime/skip/:slug', async (req, res) => {
   const slug = req.params.slug;
   const episode = parseInt(req.query.episode as string) || 1;
 
-  // Cari judul anime dari provider
+  // 1. Cari judul anime
   let animeTitle = '';
+  let cleanName = '';
   for (const p of providers.filter((pp: any) => pp.detail && pp.name !== 'jikan' && pp.name !== 'aniskip')) {
     try {
       const detail = await fetchWithTimeout(p.detail(slug));
       if (detail?.title) {
-        animeTitle = cleanTitle(detail.title);
+        animeTitle = detail.title;
+        cleanName = cleanTitle(detail.title).toLowerCase();
         break;
       }
     } catch {}
@@ -253,30 +255,52 @@ app.get('/anime/skip/:slug', async (req, res) => {
     return res.status(404).json({ status: 'error', message: 'Anime tidak ditemukan' });
   }
 
-  // Cari MAL ID langsung dari Jikan API
-  let malId = null;
-  const jikanProvider = providers.find((p: any) => p.name === 'jikan');
-  
-  if (jikanProvider) {
-    // Cara 1: via provider Jikan
-    try {
-      const searchResult = await fetchWithTimeout(jikanProvider.search({ filter: { keyword: animeTitle } }));
-      if (searchResult?.animes?.length > 0) {
-        const match = searchResult.animes[0].slug.match(/jikan-(\d+)/);
-        if (match) malId = parseInt(match[1]);
+  // 2. PRIORITAS UTAMA: cek database lokal
+  let malId: number | null = malIdDB[cleanName] || null;
+
+  // 3. Jika tidak ketemu persis, coba fuzzy match
+  if (!malId) {
+    // Buat beberapa variasi nama
+    const variants = [
+      cleanName,
+      cleanName.replace(/(season|part|movie|ova|ona|special|tv|series|serial)/gi, '').replace(/s+/g, ' ').trim(),
+      cleanName.split(' ').slice(0, 2).join(' '),
+      cleanName.split(' ')[0]
+    ].filter(Boolean);
+
+    for (const variant of variants) {
+      // Cek kecocokan persis
+      if (malIdDB[variant]) {
+        malId = malIdDB[variant];
+        break;
       }
-    } catch {}
+      // Cek kecocokan sebagian
+      for (const [key, value] of Object.entries(malIdDB)) {
+        if (variant.includes(key) || key.includes(variant)) {
+          malId = value;
+          break;
+        }
+      }
+      if (malId) break;
+    }
   }
 
-  // Cara 2: direct Jikan API call
+  // 4. HANYA jika database lokal gagal, coba Jikan API
   if (!malId) {
     try {
-      const axios = (await import('axios')).default;
-      const directRes = await axios.get('https://api.jikan.moe/v4/anime', {
-        params: { q: animeTitle, limit: 1 }
-      });
-      if (directRes.data?.data?.length > 0) {
-        malId = directRes.data.data[0].mal_id;
+      const axiosMod = await import('axios');
+      const axios = axiosMod.default;
+      const queries = [cleanName, cleanName.split(' ').slice(0, 2).join(' ')];
+      for (const q of queries) {
+        try {
+          const res = await axios.get('https://api.jikan.moe/v4/anime', {
+            params: { q, type: 'tv', limit: 1 }, timeout: 5000
+          });
+          if (res.data?.data?.length > 0) {
+            malId = res.data.data[0].mal_id;
+            break;
+          }
+        } catch {}
       }
     } catch {}
   }
@@ -285,22 +309,24 @@ app.get('/anime/skip/:slug', async (req, res) => {
     return res.status(404).json({
       status: 'error',
       message: 'MAL ID tidak ditemukan',
-      searched: animeTitle
+      searched: cleanName,
+      tip: 'Tambahkan di mal_id_database.json'
     });
   }
 
-  // Ambil timestamp dari AniSkip
-  const aniskipProvider = providers.find((p: any) => p.name === 'aniskip');
-  if (!aniskipProvider) {
+  // 5. Ambil timestamp dari AniSkip
+  const aniskipProv = providers.find((p: any) => p.name === 'aniskip');
+  if (!aniskipProv) {
     return res.status(502).json({ status: 'error', message: 'AniSkip tidak tersedia' });
   }
 
   try {
-    const timestamps = await aniskipProvider.getTimestamps(malId, episode);
+    const timestamps = await aniskipProv.getTimestamps(malId, episode);
     res.json(createResponse({
       mal_id: malId,
-      episode: episode,
+      episode,
       title: animeTitle,
+      source: malIdDB[cleanName] ? 'database' : 'jikan',
       skip_times: (timestamps || []).map((t: any) => ({
         type: t.skipType || 'unknown',
         start: t.interval?.startTime || 0,
