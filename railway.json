@@ -10,7 +10,7 @@
           "cmds": ["npm install --omit=dev"]
         },
         "build": {
-          "cmds": []
+          "cmds": ["echo 'No build needed'"]
         }
       }
     }
