@@ -21,7 +21,14 @@ const otakudesu = new Otakudesu();
 const animasu = new Animasu();
 const animeindo = new AnimeIndo();
 
-// Utility: format anime untuk list
+// Helper timeout
+const fetchWithTimeout = <T>(promise: Promise<T>, ms = 12000): Promise<T> =>
+  Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))
+  ]);
+
+// Format anime list (sama)
 const formatAnimeList = (anime: any) => ({
   title: anime.title,
   poster: anime.posterUrl,
@@ -31,7 +38,7 @@ const formatAnimeList = (anime: any) => ({
   type: anime.type || null,
   score: anime.rating?.toString() || null,
   episodes: anime.episodes?.length || null,
-  releaseDay: null, // akan diisi jika dari sumber tertentu
+  releaseDay: null,
   latestReleaseDate: null,
   otakudesuUrl: anime.source === 'otakudesu' ? `https://otakudesu.blog/anime/${anime.slug}/` : null,
   studios: anime.studios || [],
@@ -40,7 +47,7 @@ const formatAnimeList = (anime: any) => ({
   genreList: (anime.genres || []).map((g: any) => g.name),
 });
 
-// Format detail
+// Format detail (sama)
 const formatDetail = (anime: any) => ({
   title: anime.title,
   poster: anime.posterUrl,
@@ -74,7 +81,7 @@ const formatDetail = (anime: any) => ({
   source: anime.source,
 });
 
-// Response builder
+// Response wrapper
 const createResponse = (data: any, pagination: any = null) => ({
   status: "success",
   creator: "Animapi",
@@ -87,38 +94,41 @@ const createResponse = (data: any, pagination: any = null) => ({
 
 // ==================== ENDPOINTS ====================
 
-// Home
+// Home (dari sebelumnya, tetap)
 app.get('/anime/home', async (req, res) => {
   const key = 'home';
   const cached = getCache(key);
   if (cached) return res.json(cached);
   try {
-    const [otOn, otCom] = await Promise.all([
-      otakudesu.search({ filter: { status: 'Ongoing' } }).catch(() => ({ animes: [] })),
-      otakudesu.search({ filter: { status: 'Completed' } }).catch(() => ({ animes: [] })),
-    ]);
-    const ongoingList = (otOn.animes || []).slice(0, 15).map((a: any) => ({
-      ...formatAnimeList(a),
-      releaseDay: null,
-      latestReleaseDate: null,
-    }));
-    const completedList = (otCom.animes || []).slice(0, 10).map((a: any) => ({
-      ...formatAnimeList(a),
-      score: a.rating?.toString() || null,
-      lastReleaseDate: null,
-      episodes: a.episodes?.length || null,
-    }));
+    let ongoingList: any[] = [];
+    let completedList: any[] = [];
+    try {
+      const [otOn, otCom] = await Promise.all([
+        fetchWithTimeout(otakudesu.search({ filter: { status: 'Ongoing' } })),
+        fetchWithTimeout(otakudesu.search({ filter: { status: 'Completed' } }))
+      ]);
+      ongoingList = (otOn.animes || []).slice(0, 15).map(formatAnimeList);
+      completedList = (otCom.animes || []).slice(0, 10).map(formatAnimeList);
+    } catch {
+      try {
+        const [anOn, anCom] = await Promise.all([
+          fetchWithTimeout(animasu.search({ filter: { status: 'Ongoing' } })),
+          fetchWithTimeout(animasu.search({ filter: { status: 'Completed' } }))
+        ]);
+        ongoingList = (anOn.animes || []).slice(0, 15).map(formatAnimeList);
+        completedList = (anCom.animes || []).slice(0, 10).map(formatAnimeList);
+      } catch {
+        const [aiOn, aiCom] = await Promise.all([
+          fetchWithTimeout(animeindo.search({ filter: { status: 'Ongoing' } })),
+          fetchWithTimeout(animeindo.search({ filter: { status: 'Completed' } }))
+        ]);
+        ongoingList = (aiOn.animes || []).slice(0, 15).map(formatAnimeList);
+        completedList = (aiCom.animes || []).slice(0, 10).map(formatAnimeList);
+      }
+    }
     const result = createResponse({
-      ongoing: {
-        href: "/anime/ongoing-anime",
-        otakudesuUrl: "https://otakudesu.blog/ongoing-anime/",
-        animeList: ongoingList,
-      },
-      completed: {
-        href: "/anime/complete-anime",
-        otakudesuUrl: "https://otakudesu.blog/complete-anime/",
-        animeList: completedList,
-      },
+      ongoing: { href: "/anime/ongoing-anime", otakudesuUrl: "https://otakudesu.blog/ongoing-anime/", animeList: ongoingList },
+      completed: { href: "/anime/complete-anime", otakudesuUrl: "https://otakudesu.blog/complete-anime/", animeList: completedList },
     });
     setCache(key, result);
     res.json(result);
@@ -132,16 +142,20 @@ app.get('/anime/ongoing-anime', async (req, res) => {
   const cached = getCache(key);
   if (cached) return res.json(cached);
   try {
-    const [ot, an, ai] = await Promise.all([
-      otakudesu.search({ filter: { status: 'Ongoing' }, page }).catch(() => ({ animes: [], hasNext: false })),
-      animasu.search({ filter: { status: 'Ongoing' }, page }).catch(() => ({ animes: [], hasNext: false })),
-      animeindo.search({ filter: { status: 'Ongoing' }, page }).catch(() => ({ animes: [], hasNext: false })),
+    const [ot, an, ai] = await Promise.allSettled([
+      fetchWithTimeout(otakudesu.search({ filter: { status: 'Ongoing' }, page })),
+      fetchWithTimeout(animasu.search({ filter: { status: 'Ongoing' }, page })),
+      fetchWithTimeout(animeindo.search({ filter: { status: 'Ongoing' }, page }))
     ]);
-    const all = [...(ot.animes||[]), ...(an.animes||[]), ...(ai.animes||[])].map(formatAnimeList);
-    const result = createResponse(
-      { animeList: all },
-      { currentPage: page, hasNextPage: ot.hasNext || an.hasNext || ai.hasNext }
-    );
+    const all = [
+      ...(ot.status === 'fulfilled' ? (ot.value.animes || []) : []),
+      ...(an.status === 'fulfilled' ? (an.value.animes || []) : []),
+      ...(ai.status === 'fulfilled' ? (ai.value.animes || []) : []),
+    ].map(formatAnimeList);
+    const hasNext = (ot.status === 'fulfilled' && ot.value.hasNext) ||
+                    (an.status === 'fulfilled' && an.value.hasNext) ||
+                    (ai.status === 'fulfilled' && ai.value.hasNext);
+    const result = createResponse({ animeList: all }, { currentPage: page, hasNextPage: hasNext });
     setCache(key, result);
     res.json(result);
   } catch (e: any) { res.status(500).json({ status: "error", message: e.message }); }
@@ -154,16 +168,20 @@ app.get('/anime/complete-anime', async (req, res) => {
   const cached = getCache(key);
   if (cached) return res.json(cached);
   try {
-    const [ot, an, ai] = await Promise.all([
-      otakudesu.search({ filter: { status: 'Completed' }, page }).catch(() => ({ animes: [], hasNext: false })),
-      animasu.search({ filter: { status: 'Completed' }, page }).catch(() => ({ animes: [], hasNext: false })),
-      animeindo.search({ filter: { status: 'Completed' }, page }).catch(() => ({ animes: [], hasNext: false })),
+    const [ot, an, ai] = await Promise.allSettled([
+      fetchWithTimeout(otakudesu.search({ filter: { status: 'Completed' }, page })),
+      fetchWithTimeout(animasu.search({ filter: { status: 'Completed' }, page })),
+      fetchWithTimeout(animeindo.search({ filter: { status: 'Completed' }, page }))
     ]);
-    const all = [...(ot.animes||[]), ...(an.animes||[]), ...(ai.animes||[])].map(formatAnimeList);
-    const result = createResponse(
-      { animeList: all },
-      { currentPage: page, hasNextPage: ot.hasNext || an.hasNext || ai.hasNext }
-    );
+    const all = [
+      ...(ot.status === 'fulfilled' ? (ot.value.animes || []) : []),
+      ...(an.status === 'fulfilled' ? (an.value.animes || []) : []),
+      ...(ai.status === 'fulfilled' ? (ai.value.animes || []) : []),
+    ].map(formatAnimeList);
+    const hasNext = (ot.status === 'fulfilled' && ot.value.hasNext) ||
+                    (an.status === 'fulfilled' && an.value.hasNext) ||
+                    (ai.status === 'fulfilled' && ai.value.hasNext);
+    const result = createResponse({ animeList: all }, { currentPage: page, hasNextPage: hasNext });
     setCache(key, result);
     res.json(result);
   } catch (e: any) { res.status(500).json({ status: "error", message: e.message }); }
@@ -175,13 +193,16 @@ app.get('/anime/search/:keyword', async (req, res) => {
   const cached = getCache(key);
   if (cached) return res.json(cached);
   try {
-    const [ot, an, ai] = await Promise.all([
-      otakudesu.search({ filter: { keyword: req.params.keyword } }).catch(() => ({ animes: [] })),
-      animasu.search({ filter: { keyword: req.params.keyword } }).catch(() => ({ animes: [] })),
-      animeindo.search({ filter: { keyword: req.params.keyword } }).catch(() => ({ animes: [] })),
+    const [ot, an, ai] = await Promise.allSettled([
+      fetchWithTimeout(otakudesu.search({ filter: { keyword: req.params.keyword } })),
+      fetchWithTimeout(animasu.search({ filter: { keyword: req.params.keyword } })),
+      fetchWithTimeout(animeindo.search({ filter: { keyword: req.params.keyword } }))
     ]);
-    const all = [...(ot.animes||[]), ...(an.animes||[]), ...(ai.animes||[])].map(formatAnimeList);
-    setCache(key, createResponse({ animeList: all }));
+    const all = [
+      ...(ot.status === 'fulfilled' ? (ot.value.animes || []) : []),
+      ...(an.status === 'fulfilled' ? (an.value.animes || []) : []),
+      ...(ai.status === 'fulfilled' ? (ai.value.animes || []) : []),
+    ].map(formatAnimeList);
     res.json(createResponse({ animeList: all }));
   } catch (e: any) { res.status(500).json({ status: "error", message: e.message }); }
 });
@@ -194,72 +215,81 @@ app.get('/anime/anime/:slug', async (req, res) => {
   if (cached) return res.json(cached);
   try {
     let data: any;
-    // Coba dari Otakudesu dulu
-    try { data = await otakudesu.detail(slug); } catch {}
-    // Jika tidak ada atau tidak lengkap, coba Animasu
-    if (!data?.title) {
-      try { data = await animasu.detail(slug); } catch {}
-    }
-    // Jika masih kosong, coba AnimeIndo
-    if (!data?.title) {
-      try { data = await animeindo.detail(slug); } catch {}
-    }
+    try { data = await fetchWithTimeout(otakudesu.detail(slug)); } catch {}
+    if (!data?.title) try { data = await fetchWithTimeout(animasu.detail(slug)); } catch {}
+    if (!data?.title) try { data = await fetchWithTimeout(animeindo.detail(slug)); } catch {}
     if (!data?.title) return res.status(404).json({ status: "error", message: "Anime tidak ditemukan" });
-    
     const result = createResponse(formatDetail(data));
     setCache(key, result);
     res.json(result);
   } catch (e: any) { res.status(500).json({ status: "error", message: e.message }); }
 });
 
-// Episode streams
+// ==================== EPISODE (DIPERBAIKI) ====================
 app.get('/anime/episode/:slug', async (req, res) => {
   const slug = req.params.slug;
-  const key = `episode-${slug}`;
-  const cached = getCache(key);
-  if (cached) return res.json(cached);
-  try {
-    let streams: any[] = [];
-    let source = '';
-    // Coba provider satu per satu
-    try {
-      const raw = await animasu.streams(slug);
-      streams = Array.isArray(raw) ? raw : (raw?.streams || []);
-      if (streams.length) source = 'animasu';
-    } catch {}
-    if (!streams.length) {
-      try {
-        const raw = await otakudesu.streams(slug);
-        streams = Array.isArray(raw) ? raw : (raw?.streams || []);
-        if (streams.length) source = 'otakudesu';
-      } catch {}
-    }
-    if (!streams.length) {
-      try {
-        const raw = await animeindo.streams(slug);
-        streams = Array.isArray(raw) ? raw : (raw?.streams || []);
-        if (streams.length) source = 'animeindo';
-      } catch {}
-    }
-    if (!streams.length) return res.status(502).json({ status: "error", message: "Stream tidak tersedia" });
+  // Tidak pakai cache untuk streaming karena bisa berubah
 
-    const qualities = streams.reduce((acc: any[], s: any) => {
-      const existing = acc.find(q => q.title === s.name);
-      if (existing) existing.serverList.push({ title: s.source, url: s.url });
-      else acc.push({ title: s.name, serverList: [{ title: s.source, url: s.url }] });
-      return acc;
-    }, []);
+  // Mengambil dari semua provider secara paralel
+  const results = await Promise.allSettled([
+    fetchWithTimeout(animasu.streams(slug)),
+    fetchWithTimeout(otakudesu.streams(slug)),
+    fetchWithTimeout(animeindo.streams(slug)),
+  ]);
 
-    res.json(createResponse({
-      title: `Episode ${slug}`,
-      animeId: slug,
-      defaultStreamingUrl: streams[0]?.url || '',
-      server: { qualities },
-      source,
-    }));
-    setCache(key, createResponse({ /* jangan cache karena dinamis */ }));
-    // Note: tidak disarankan cache streaming karena bisa berubah
-  } catch (e: any) { res.status(500).json({ status: "error", message: e.message }); }
+  const allStreams: any[] = [];
+
+  // Gabungkan streams dari semua provider
+  results.forEach((result, index) => {
+    if (result.status === 'fulfilled') {
+      const raw = result.value;
+      // Bisa berupa array langsung atau object dengan property 'streams'
+      const streams = Array.isArray(raw) ? raw : (raw?.streams || []);
+      // Tandai source provider (0=animasu,1=otakudesu,2=animeindo)
+      const source = ['animasu', 'otakudesu', 'animeindo'][index];
+      streams.forEach((s: any) => {
+        allStreams.push({
+          ...s,
+          provider: s.source || source, // pakai source dari provider jika ada, jika tidak gunakan source kita
+        });
+      });
+    }
+  });
+
+  if (allStreams.length === 0) {
+    return res.status(502).json({ status: "error", message: "Stream tidak tersedia" });
+  }
+
+  // Kelompokkan berdasarkan kualitas (name) lalu dalam setiap kualitas, daftar server dari berbagai provider
+  const qualityMap = new Map<string, any[]>();
+  allStreams.forEach(s => {
+    const qual = s.name || 'Unknown';
+    if (!qualityMap.has(qual)) qualityMap.set(qual, []);
+    qualityMap.get(qual)!.push({
+      title: s.provider,
+      url: s.url,
+      source: s.provider,
+      // Beberapa provider memiliki serverId, jika ada kita sertakan
+      serverId: s.serverId || null,
+      href: s.serverId ? `/anime/server/${s.serverId}` : null,
+    });
+  });
+
+  const qualities = Array.from(qualityMap.entries()).map(([title, serverList]) => ({
+    title,
+    serverList,
+  }));
+
+  // Ambil default streaming URL (prioritas dari Animasu jika ada)
+  const animasuStreams = allStreams.filter(s => s.provider === 'animasu');
+  const defaultUrl = animasuStreams.length > 0 ? animasuStreams[0].url : allStreams[0].url;
+
+  res.json(createResponse({
+    animeId: slug,
+    defaultStreamingUrl: defaultUrl,
+    server: { qualities },
+    totalServers: allStreams.length,
+  }));
 });
 
 // Genre list
@@ -268,11 +298,11 @@ app.get('/anime/genre', async (req, res) => {
   const cached = getCache(key);
   if (cached) return res.json(cached);
   try {
-    const [ot, an] = await Promise.all([
-      otakudesu.genres().catch(() => []),
-      animasu.genres().catch(() => []),
-    ]);
-    const all = [...(ot||[]), ...(an||[])];
+    const [ot, an] = await Promise.allSettled([otakudesu.genres(), animasu.genres()]);
+    const all = [
+      ...(ot.status === 'fulfilled' ? (ot.value || []) : []),
+      ...(an.status === 'fulfilled' ? (an.value || []) : []),
+    ];
     const unique = all.filter((g: any, i: number, arr: any[]) => arr.findIndex(x => x.slug === g.slug) === i);
     const result = createResponse({
       genreList: unique.map((g: any) => ({
@@ -294,17 +324,21 @@ app.get('/anime/genre/:slug', async (req, res) => {
   const cached = getCache(key);
   if (cached) return res.json(cached);
   try {
-    const [ot, an, ai] = await Promise.all([
-      otakudesu.search({ filter: { genres: [req.params.slug] }, page }).catch(() => ({ animes: [] })),
-      animasu.search({ filter: { genres: [req.params.slug] }, page }).catch(() => ({ animes: [] })),
-      animeindo.search({ filter: { genres: [req.params.slug] }, page }).catch(() => ({ animes: [] })),
+    const [ot, an, ai] = await Promise.allSettled([
+      fetchWithTimeout(otakudesu.search({ filter: { genres: [req.params.slug] }, page })),
+      fetchWithTimeout(animasu.search({ filter: { genres: [req.params.slug] }, page })),
+      fetchWithTimeout(animeindo.search({ filter: { genres: [req.params.slug] }, page }))
     ]);
-    const all = [...(ot.animes||[]), ...(an.animes||[]), ...(ai.animes||[])].map(formatAnimeList);
+    const all = [
+      ...(ot.status === 'fulfilled' ? (ot.value.animes || []) : []),
+      ...(an.status === 'fulfilled' ? (an.value.animes || []) : []),
+      ...(ai.status === 'fulfilled' ? (ai.value.animes || []) : []),
+    ].map(formatAnimeList);
     res.json(createResponse({ animeList: all }, { currentPage: page }));
   } catch (e: any) { res.status(500).json({ status: "error", message: e.message }); }
 });
 
-// Schedule (menggunakan Otakudesu)
+// Schedule
 app.get('/anime/schedule', async (req, res) => {
   const key = 'schedule';
   const cached = getCache(key);
@@ -314,9 +348,7 @@ app.get('/anime/schedule', async (req, res) => {
     const schedule = await Promise.all(days.map(async (day) => {
       try {
         const slugs: string[] = await (otakudesu as any).searchByDay(day);
-        const animes = await Promise.all(
-          slugs.map(slug => (otakudesu as any).detail(slug).catch(() => null))
-        );
+        const animes = await Promise.all(slugs.map(slug => (otakudesu as any).detail(slug).catch(() => null)));
         return {
           day: day.charAt(0).toUpperCase() + day.slice(1),
           anime_list: animes.filter(Boolean).map((a: any) => ({
@@ -336,19 +368,34 @@ app.get('/anime/schedule', async (req, res) => {
 // Batch
 app.get('/anime/batch/:slug', async (req, res) => {
   try {
-    let data = await otakudesu.detail(req.params.slug).catch(() => null);
-    if (!data?.title) data = await animasu.detail(req.params.slug).catch(() => null);
-    res.json(createResponse({
-      title: data?.title || null,
-      animeId: data?.slug || req.params.slug,
-      batches: data?.batches || [],
-    }));
+    let data = await fetchWithTimeout(otakudesu.detail(req.params.slug)).catch(() => null);
+    if (!data?.title) data = await fetchWithTimeout(animasu.detail(req.params.slug)).catch(() => null);
+    res.json(createResponse({ title: data?.title, animeId: data?.slug || req.params.slug, batches: data?.batches || [] }));
   } catch (e: any) { res.status(500).json({ status: "error", message: e.message }); }
 });
 
-// Server embed (placeholder)
+// Server embed
 app.get('/anime/server/:serverId', (req, res) => {
   res.json(createResponse({ embedUrl: req.params.serverId }));
+});
+
+// Unlimited
+app.get('/anime/unlimited', async (req, res) => {
+  const key = 'unlimited';
+  const cached = getCache(key);
+  if (cached) return res.json(cached);
+  try {
+    const [ot, an] = await Promise.allSettled([
+      otakudesu.search({ filter: { keyword: '' } }),
+      animasu.search({ filter: { keyword: '' } }),
+    ]);
+    const all = [
+      ...(ot.status === 'fulfilled' ? (ot.value.animes || []) : []),
+      ...(an.status === 'fulfilled' ? (an.value.animes || []) : []),
+    ].map(formatAnimeList);
+    setCache(key, createResponse({ animeList: all }));
+    res.json(createResponse({ animeList: all }));
+  } catch (e: any) { res.status(500).json({ status: "error", message: e.message }); }
 });
 
 // Root
@@ -373,22 +420,4 @@ app.get('/', (req, res) => {
   });
 });
 
-// Unlimited (semua)
-app.get('/anime/unlimited', async (req, res) => {
-  const key = 'unlimited';
-  const cached = getCache(key);
-  if (cached) return res.json(cached);
-  try {
-    const [ot, an] = await Promise.all([
-      otakudesu.search({ filter: { keyword: '' } }).catch(() => ({ animes: [] })),
-      animasu.search({ filter: { keyword: '' } }).catch(() => ({ animes: [] })),
-    ]);
-    const all = [...(ot.animes||[]), ...(an.animes||[])].map(formatAnimeList);
-    setCache(key, createResponse({ animeList: all }));
-    res.json(createResponse({ animeList: all }));
-  } catch (e: any) { res.status(500).json({ status: "error", message: e.message }); }
-});
-
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server on port ${PORT}`));
