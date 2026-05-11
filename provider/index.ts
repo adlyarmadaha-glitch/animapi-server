@@ -1,15 +1,8 @@
 import axios, { AxiosStatic } from "axios";
 import { Cache } from "../cache";
-import {
-  Anime,
-  Genre,
-  ProviderOptions,
-  SearchOptions,
-  SearchResult,
-  Stream,
-} from "./index.types";
 import * as cheerio from "cheerio";
 import pLimit, { LimitFunction } from "p-limit";
+import { Anime, Genre, ProviderOptions, SearchOptions, SearchResult, Stream } from "./index.types";
 
 export abstract class Provider {
   protected cache: Cache;
@@ -20,7 +13,7 @@ export abstract class Provider {
 
   constructor(public readonly name: string, public options: ProviderOptions) {
     this.baseUrl = options?.baseUrl || "";
-    this.cache = new Cache(".animapi/cache/animasu.db");
+    this.cache = new Cache();  // cache internal sederhana
     this.api = axios;
     this.cheerio = cheerio;
     this.limit = pLimit(3);
