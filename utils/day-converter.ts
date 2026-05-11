@@ -1,13 +1,4 @@
-export type DAY_ID =
-  | "senin"
-  | "selasa"
-  | "rabu"
-  | "kamis"
-  | "jumat"
-  | "sabtu"
-  | "minggu"
-  | "random";
-
+export type DAY_ID = "senin" | "selasa" | "rabu" | "kamis" | "jumat" | "sabtu" | "minggu" | "random";
 export const dayMap: Record<string, string> = {
   monday: "senin",
   tuesday: "selasa",
@@ -21,13 +12,8 @@ export const dayMap: Record<string, string> = {
 
 export function convertDay(day: string): string {
   const lower = day.toLowerCase();
-
-  // English → Indonesian
   if (dayMap[lower]) return dayMap[lower];
-
-  // Indonesian → English
   const found = Object.entries(dayMap).find(([, indo]) => indo === lower);
   if (found) return found[0];
-
   throw new Error(`Unknown day: ${day}`);
 }
