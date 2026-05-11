@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Cache
+// Memory cache
 const cache = new Map<string, { data: any; time: number }>();
 const CACHE_TTL = 5 * 60 * 1000;
 const getCache = (key: string) => {
@@ -28,7 +28,10 @@ const providers = {
 };
 
 const allProviders = Object.values(providers);
-const streamProviders = [providers.animasu, providers.otakudesu, providers.animeindo, providers.samehadaku, providers.anoboy]; // Jikan tidak ada streaming
+const streamProviders = [
+  providers.animasu, providers.otakudesu, providers.animeindo,
+  providers.samehadaku, providers.anoboy
+];
 
 // Utility
 const fetchWithTimeout = <T>(promise: Promise<T>, ms = 10000): Promise<T> =>
@@ -40,7 +43,7 @@ const formatAnimeList = (anime: any) => ({
   animeId: anime.slug,
   href: `/anime/anime/${anime.slug}`,
   status: anime.status,
-  type: anime.type || 'TV',
+  type: anime.type || null,
   score: anime.rating?.toString() || null,
   episodes: anime.episodes?.length || null,
   synopsis: anime.synopsis?.substring(0, 150) || null,
@@ -168,17 +171,18 @@ app.get('/anime/episode/:slug', async (req, res) => {
   res.json(createResponse({ animeId: slug, defaultStreamingUrl: allStreams[0]?.url || '', server: { qualities } }));
 });
 
-// Genre list (optimized, no duplicates)
+// Genre list
 app.get('/anime/genre', async (req, res) => {
   const key = 'genre';
   const cached = getCache(key);
   if (cached) return res.json(cached);
   const results = await Promise.allSettled([
-    providers.otakudesu.genres(), providers.animasu.genres(), providers.anoboy.genres(), providers.jikan.genres()
+    providers.otakudesu.genres(), providers.animasu.genres(),
+    providers.anoboy.genres(), providers.jikan.genres()
   ]);
   const all = results.filter(r => r.status === 'fulfilled').flatMap(r => r.value || []);
   const unique = all.filter((g: any, i: number, arr: any[]) => arr.findIndex(x => x.slug === g.slug) === i);
-  const result = createResponse({ genreList: unique.map((g: any) => ({ title: g.name, genreId: g.slug })) });
+  const result = createResponse({ genreList: unique.map((g: any) => ({ title: g.name, genreId: g.slug, href: `/anime/genre/${g.slug}` })) });
   setCache(key, result);
   res.json(result);
 });
@@ -196,7 +200,7 @@ app.get('/anime/genre/:slug', async (req, res) => {
   res.json(createResponse({ animeList: all }, { currentPage: page }));
 });
 
-// Schedule
+// Schedule (via Otakudesu)
 app.get('/anime/schedule', async (req, res) => {
   const key = 'schedule';
   const cached = getCache(key);
@@ -247,7 +251,12 @@ app.get('/', (req, res) => {
   res.json({
     status: "success",
     creator: "Animapi",
-    endpoints: ['/anime/home', '/anime/ongoing-anime', '/anime/complete-anime', '/anime/search/:keyword', '/anime/anime/:slug', '/anime/episode/:slug', '/anime/genre', '/anime/genre/:slug', '/anime/schedule', '/anime/batch/:slug', '/anime/server/:serverId', '/anime/unlimited']
+    endpoints: [
+      '/anime/home', '/anime/ongoing-anime', '/anime/complete-anime',
+      '/anime/search/:keyword', '/anime/anime/:slug', '/anime/episode/:slug',
+      '/anime/genre', '/anime/genre/:slug', '/anime/schedule',
+      '/anime/batch/:slug', '/anime/server/:serverId', '/anime/unlimited',
+    ]
   });
 });
 

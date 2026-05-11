@@ -1,22 +1,25 @@
-import axios, { AxiosStatic } from "axios";
-import { Cache } from "../cache";
+import axios from "axios";
 import * as cheerio from "cheerio";
-import pLimit, { LimitFunction } from "p-limit";
-import { Anime, Genre, ProviderOptions, SearchOptions, SearchResult, Stream } from "./index.types";
+import pLimit from "p-limit";
+import { Cache } from "../cache.js";
+import type {
+  Anime, Genre, ProviderOptions, SearchOptions, SearchResult, Stream
+} from "./index.types.js";
 
 export abstract class Provider {
   protected cache: Cache;
-  protected api: AxiosStatic;
-  protected cheerio: typeof cheerio;
-  protected limit: LimitFunction;
+  protected api = axios;
+  protected cheerio = cheerio;
+  protected limit = pLimit(3);
   protected baseUrl: string;
+  public readonly name: string;
+  public options: ProviderOptions;
 
-  constructor(public readonly name: string, public options: ProviderOptions) {
-    this.baseUrl = options?.baseUrl || "";
-    this.cache = new Cache();  // cache internal sederhana
-    this.api = axios;
-    this.cheerio = cheerio;
-    this.limit = pLimit(3);
+  constructor(name: string, options: ProviderOptions = {}) {
+    this.name = name;
+    this.baseUrl = options.baseUrl || "";
+    this.options = { cache: true, ...options };
+    this.cache = new Cache(undefined, 3600);
   }
 
   abstract search(options?: SearchOptions): Promise<SearchResult>;
