@@ -121,6 +121,7 @@ function cleanTitle(title: string): string {
     .replace(/episode \d+/gi, '')
     .replace(/batch/gi, '')
     .replace(/bd/gi, '')
+    .replace(/\b(serial|tv|movie|ova|ona|special|live action|series)\b/gi, '')
     .replace(/\(.*?\)/g, '')
     .replace(/\s+/g, ' ')
     .trim();
