@@ -1,55 +1,17 @@
 {
-  "name": "animapi",
-  "version": "1.0.3",
-  "main": "index.js",
+  "name": "animapi-server",
+  "version": "1.0.0",
+  "main": "server.js",
   "scripts": {
-    "build": "npm run clean && tsc -b &&  npx tsc-alias ",
-    "clean": "tsc -b --clean",
-    "release": "npm run build && npm publish"
-  },
-  "keywords": [
-    "animasu",
-    "otakudesu",
-    "animaku",
-    "nonton anime",
-    "anime",
-    "waifu",
-    "apalah gatau"
-  ],
-  "author": "Angga7Togk",
-  "license": "ISC",
-  "description": "Animapi adalah library scrapper anime streaming dengan sangat cepat dan mudah digunakan.",
-  "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
-    "@types/cheerio": "^0.22.35",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
-    "@types/node": "^25.6.2",
-    "esbuild": "^0.25.8",
-    "npx": "^10.2.2",
-    "tsc-alias": "^1.8.16",
-    "tsx": "^4.21.0",
-    "typescript": "^5.9.2",
-    "vitest": "^3.2.4"
+    "start": "node server.js"
   },
   "dependencies": {
-    "animapi": "^1.0.3",
     "axios": "^1.11.0",
     "better-sqlite3": "^12.2.0",
     "cheerio": "^1.1.2",
-    "cors": "^2.8.6",
+    "cors": "^2.8.5",
     "dayjs": "^1.11.13",
-    "express": "^5.2.1",
+    "express": "^4.18.2",
     "p-limit": "^7.1.1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/angga7togk/Animapi.git"
-  },
-  "type": "commonjs",
-  "types": "./index.d.ts",
-  "bugs": {
-    "url": "https://github.com/angga7togk/Animapi/issues"
-  },
-  "homepage": "https://github.com/angga7togk/Animapi#readme"
+  }
 }
