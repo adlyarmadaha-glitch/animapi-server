@@ -15,6 +15,82 @@ const getCache = (key: string) => {
 };
 const setCache = (key: string, data: any) => cache.set(key, { data, time: Date.now() });
 
+// Database lokal MAL ID (One Piece = 21, Naruto = 20, dll.)
+const malIdDB: Record<string, number> = {
+  "one piece": 21,
+  "naruto": 20,
+  "naruto shippuden": 1735,
+  "boruto": 34566,
+  "bleach": 269,
+  "dragon ball": 813,
+  "attack on titan": 16498,
+  "demon slayer": 38000,
+  "jujutsu kaisen": 40748,
+  "my hero academia": 31964,
+  "black clover": 34572,
+  "sword art online": 11757,
+  "tokyo ghoul": 22319,
+  "one punch man": 30276,
+  "hunter x hunter": 11061,
+  "fullmetal alchemist": 5114,
+  "death note": 1535,
+  "fairy tail": 6702,
+  "gintama": 918,
+  "re zero": 31240,
+  "konosuba": 30831,
+  "steins gate": 9253,
+  "code geass": 1575,
+  "gurren lagann": 2001,
+  "cowboy bebop": 1,
+  "samurai champloo": 205,
+  "trigun": 6,
+  "neon genesis evangelion": 30,
+  "monster": 19,
+  "mushishi": 457,
+  "violet evergarden": 33352,
+  "mob psycho 100": 32182,
+  "haikyuu": 20583,
+  "kuroko no basket": 11771,
+  "yuri on ice": 32995,
+  "food wars": 28171,
+  "your lie in april": 23273,
+  "anohana": 9989,
+  "clannad": 2167,
+  "angel beats": 6547,
+  "toradora": 4224,
+  "bunny girl senpai": 35247,
+  "erased": 31043,
+  "psycho pass": 13601,
+  "made in abyss": 34599,
+  "the promised neverland": 37779,
+  "dr stone": 38691,
+  "fire force": 38671,
+  "spy x family": 50265,
+  "chainsaw man": 44511,
+  "solo leveling": 52299,
+  "frieren": 52991,
+  "oshi no ko": 52034,
+  "bocchi the rock": 50311,
+  "lycoris recoil": 50060,
+  "summertime render": 50594,
+  "ranking of kings": 40834,
+  "odd taxi": 46102,
+  "vivy": 49826,
+  "tokyo revengers": 42203,
+  "kaguya sama": 35203,
+  "komi can't communicate": 48926,
+  "dress up darling": 48736,
+  "call of the night": 49320,
+  "dan da dan": 54724,
+  "kaiju no 8": 52505,
+  "wind breaker": 56425,
+  "blue lock": 49596,
+  "kingdom": 120,
+  "vinland saga": 37521,
+  "berserk": 33,
+  "vagabond": 656,
+};
+
 let Otakudesu: any, Animasu: any, AnimeIndo: any, Samehadaku: any, Anoboy: any, Jikan: any, AniSkip: any, Oploverz: any;
 const providers: any[] = [];
 const streamProviders: any[] = [];
@@ -232,12 +308,12 @@ app.get('/anime/episode/:slug', async (req, res) => {
   res.json(createResponse({ animeId: slug, defaultStreamingUrl: allStreams[0]?.url || '', server: { qualities } }));
 });
 
-// ==================== SKIP INTRO (DIPERBAIKI) ====================
+// ==================== SKIP INTRO (FINAL) ====================
 app.get('/anime/skip/:slug', async (req, res) => {
   const slug = req.params.slug;
   const episode = parseInt(req.query.episode as string) || 1;
 
-  // 1. Cari judul anime
+  // 1. Cari judul anime dari provider
   let animeTitle = '';
   let cleanName = '';
   for (const p of providers.filter((pp: any) => pp.detail && pp.name !== 'jikan' && pp.name !== 'aniskip')) {
@@ -255,26 +331,20 @@ app.get('/anime/skip/:slug', async (req, res) => {
     return res.status(404).json({ status: 'error', message: 'Anime tidak ditemukan' });
   }
 
-  // 2. PRIORITAS UTAMA: cek database lokal
+  // 2. Cek database lokal
   let malId: number | null = malIdDB[cleanName] || null;
 
-  // 3. Jika tidak ketemu persis, coba fuzzy match
+  // 3. Fuzzy match database lokal
   if (!malId) {
-    // Buat beberapa variasi nama
     const variants = [
       cleanName,
-      cleanName.replace(/(season|part|movie|ova|ona|special|tv|series|serial)/gi, '').replace(/s+/g, ' ').trim(),
+      cleanName.replace(/\b(season|part|movie|ova|ona|special|tv|series|serial)\b/gi, '').replace(/\s+/g, ' ').trim(),
       cleanName.split(' ').slice(0, 2).join(' '),
       cleanName.split(' ')[0]
     ].filter(Boolean);
 
     for (const variant of variants) {
-      // Cek kecocokan persis
-      if (malIdDB[variant]) {
-        malId = malIdDB[variant];
-        break;
-      }
-      // Cek kecocokan sebagian
+      if (malIdDB[variant]) { malId = malIdDB[variant]; break; }
       for (const [key, value] of Object.entries(malIdDB)) {
         if (variant.includes(key) || key.includes(variant)) {
           malId = value;
@@ -285,7 +355,7 @@ app.get('/anime/skip/:slug', async (req, res) => {
     }
   }
 
-  // 4. HANYA jika database lokal gagal, coba Jikan API
+  // 4. Fallback Jikan API
   if (!malId) {
     try {
       const axiosMod = await import('axios');
@@ -310,7 +380,6 @@ app.get('/anime/skip/:slug', async (req, res) => {
       status: 'error',
       message: 'MAL ID tidak ditemukan',
       searched: cleanName,
-      tip: 'Tambahkan di mal_id_database.json'
     });
   }
 
@@ -326,7 +395,6 @@ app.get('/anime/skip/:slug', async (req, res) => {
       mal_id: malId,
       episode,
       title: animeTitle,
-      source: malIdDB[cleanName] ? 'database' : 'jikan',
       skip_times: (timestamps || []).map((t: any) => ({
         type: t.skipType || 'unknown',
         start: t.interval?.startTime || 0,
