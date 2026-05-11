@@ -4,12 +4,12 @@ import { Otakudesu, Animasu, AnimeIndo } from './index.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BIND_ADDR = process.env.BIND_ADDR || '0.0.0.0';
+const BIND_ADDR = '0.0.0.0';
 
 app.use(cors());
 app.use(express.json());
 
-// Cache sederhana
+// ===== CACHE =====
 const cache = new Map<string, { data: any; time: number }>();
 const CACHE_TTL = 10 * 60 * 1000;
 const getCache = (key: string) => {
@@ -19,14 +19,16 @@ const getCache = (key: string) => {
 };
 const setCache = (key: string, data: any) => cache.set(key, { data, time: Date.now() });
 
+// ===== PROVIDERS =====
 const otakudesu = new Otakudesu();
 const animasu = new Animasu();
 const animeindo = new AnimeIndo();
 
+// ===== FORMATTER =====
 const formatAnime = (animes: any[]) =>
   (animes || [])
-    .filter(a => a && a.title && a.posterUrl)
-    .map(a => ({
+    .filter((a: any) => a && a.title && a.posterUrl)
+    .map((a: any) => ({
       title: a.title,
       poster: a.posterUrl,
       animeId: a.slug,
@@ -37,59 +39,37 @@ const formatAnime = (animes: any[]) =>
       source: a.source || 'otakudesu',
     }));
 
-// Logging middleware
+// ===== LOGGING =====
 app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
-    const ms = Date.now() - start;
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} ${res.statusCode} ${ms}ms`);
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} ${res.statusCode} ${Date.now() - start}ms`);
   });
   next();
 });
 
-// ========== ENDPOINTS ==========
+// ===== ENDPOINTS =====
+
 app.get('/anime/episode/:slug', async (req, res) => {
   const slug = req.params.slug;
   const key = 'episode-' + slug;
   const cached = getCache(key);
   if (cached) return res.json(cached);
+
   let streams: any[] = [];
-  try {
-    const raw = await animasu.streams(slug);
-    streams = Array.isArray(raw) ? raw : (raw?.streams || []);
-  } catch {}
-  if (!streams.length) {
-    try {
-      const raw = await otakudesu.streams(slug);
-      streams = Array.isArray(raw) ? raw : (raw?.streams || []);
-    } catch {}
-  }
-  if (!streams.length) {
-    try {
-      const raw = await animeindo.streams(slug);
-      streams = Array.isArray(raw) ? raw : (raw?.streams || []);
-    } catch {}
-  }
-  if (!streams.length) {
-    return res.status(502).json({ status: 'error', message: 'Streaming tidak tersedia' });
-  }
+  try { const raw = await animasu.streams(slug); streams = Array.isArray(raw) ? raw : (raw?.streams || []); } catch {}
+  if (!streams.length) { try { const raw = await otakudesu.streams(slug); streams = Array.isArray(raw) ? raw : (raw?.streams || []); } catch {} }
+  if (!streams.length) { try { const raw = await animeindo.streams(slug); streams = Array.isArray(raw) ? raw : (raw?.streams || []); } catch {} }
+  if (!streams.length) return res.status(502).json({ status: 'error', message: 'Streaming tidak tersedia' });
+
   const qualities = streams.reduce((acc: any[], s: any) => {
     const existing = acc.find(q => q.title === s.name);
-    if (existing) {
-      existing.serverList.push({ title: s.source, url: s.url });
-    } else {
-      acc.push({ title: s.name, serverList: [{ title: s.source, url: s.url }] });
-    }
+    if (existing) existing.serverList.push({ title: s.source, url: s.url });
+    else acc.push({ title: s.name, serverList: [{ title: s.source, url: s.url }] });
     return acc;
   }, []);
-  const result = {
-    status: 'success',
-    data: {
-      animeId: slug,
-      defaultStreamingUrl: streams[0]?.url || '',
-      server: { qualities },
-    },
-  };
+
+  const result = { status: 'success', data: { animeId: slug, defaultStreamingUrl: streams[0]?.url || '', server: { qualities } } };
   setCache(key, result);
   res.json(result);
 });
@@ -155,14 +135,9 @@ app.get('/anime/anime/:slug', async (req, res) => {
     const result = {
       status: 'success',
       data: {
-        title: data?.title,
-        poster: data?.posterUrl,
-        animeId: data?.slug,
-        synopsis: data?.synopsis,
-        score: data?.rating?.toString(),
-        status: data?.status,
-        type: data?.type,
-        duration: data?.duration,
+        title: data?.title, poster: data?.posterUrl, animeId: data?.slug,
+        synopsis: data?.synopsis, score: data?.rating?.toString(),
+        status: data?.status, type: data?.type, duration: data?.duration,
         genreList: (data?.genres || []).map((g: any) => ({ title: g.name, genreId: g.slug })),
         episodeList: (data?.episodes || []).map((e: any) => ({ title: e.name, episodeId: e.slug })),
       },
@@ -208,13 +183,7 @@ app.get('/anime/schedule', async (req, res) => {
     const all = formatAnime(data.animes || []);
     const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
     const perDay = Math.ceil(all.length / 7);
-    const result = {
-      status: 'success',
-      data: days.map((day, i) => ({
-        day,
-        anime_list: all.slice(i * perDay, (i + 1) * perDay),
-      })),
-    };
+    const result = { status: 'success', data: days.map((day, i) => ({ day, anime_list: all.slice(i * perDay, (i + 1) * perDay) })) };
     setCache(key, result);
     res.json(result);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -267,6 +236,7 @@ app.get('/', (req, res) => {
   res.json({
     message: 'Anime REST API - Production Ready',
     version: '2.0.0',
+    uptime: process.uptime(),
     endpoints: [
       '/anime/home',
       '/anime/ongoing-anime',
@@ -277,10 +247,13 @@ app.get('/', (req, res) => {
       '/anime/genre',
       '/anime/genre/:slug',
       '/anime/schedule',
+      '/anime/unlimited',
+      '/anime/batch/:slug',
+      '/anime/server/:serverId',
     ],
   });
 });
 
 app.listen(PORT, BIND_ADDR, () => {
-  console.log(`Server running on ${BIND_ADDR}:${PORT}`);
+  console.log(`🚀 Server running on ${BIND_ADDR}:${PORT}`);
 });
