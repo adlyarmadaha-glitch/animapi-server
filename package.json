@@ -1,17 +1,32 @@
 {
   "name": "animapi-server",
-  "version": "1.0.0",
+  "version": "2.0.0",
+  "description": "Anime REST API with multiple providers",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "echo \"No tests yet\""
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "dependencies": {
     "axios": "^1.11.0",
-    "better-sqlite3": "^12.2.0",
     "cheerio": "^1.1.2",
-    "cors": "^2.8.5",
+    "cors": "^2.8.6",
     "dayjs": "^1.11.13",
-    "express": "^4.18.2",
+    "express": "^4.21.0",
     "p-limit": "^7.1.1"
-  }
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.2",
+    "typescript": "^6.0.3"
+  },
+  "keywords": [
+    "anime",
+    "api",
+    "streaming"
+  ],
+  "author": "Adly",
+  "license": "MIT"
 }

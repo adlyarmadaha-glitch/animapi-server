@@ -1,8 +1,7 @@
-node_modules
-dist
-.animapi
-
-**/*.js
-**/*.d.ts
-
-tsconfig.tsbuildinfo
+node_modules/
+.env
+*.db
+.animapi/
+dist/
+.env.local
+.env.production

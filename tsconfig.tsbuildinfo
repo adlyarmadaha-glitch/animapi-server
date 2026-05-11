@@ -1,0 +1,1 @@
+{"root":["./cache.ts","./index.ts","./types.ts","./provider/index.ts","./provider/index.types.ts","./provider/animasu/index.ts","./provider/anime-indo/index.ts","./provider/otakudesu/helper.ts","./provider/otakudesu/index.ts","./utils/date-converter.ts","./utils/day-converter.ts","./utils/index.ts"],"version":"5.9.3"}
