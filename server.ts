@@ -164,10 +164,26 @@ async function loadProviders() {
 const fetchWithTimeout = <T>(promise: Promise<T>, ms = 10000): Promise<T> =>
   Promise.race([promise, new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))]);
 
-const formatAnimeList = (anime: any) => ({
-  title: anime.title,
+// Global dedup tracker
+const seenSlugs = new Set<string>();
+
+const formatAnimeList = (anime: any) => {
+  // Bersihkan judul dari tab & karakter aneh
+  const cleanText = (t: string) => t?.replace(/\t+/g, ' ').replace(/\s+/g, ' ').trim() || '';
+  const title = cleanText(anime.title);
+  const slug = cleanText(anime.slug || anime.animeId || '');
+  
+  // Skip jika tidak ada slug atau judul
+  if (!slug || !title) return null;
+  
+  // Skip duplikat (berdasarkan slug)
+  if (seenSlugs.has(slug)) return null;
+  seenSlugs.add(slug);
+  
+  return {
+  title: title,
   poster: anime.posterUrl,
-  animeId: anime.slug,
+  animeId: slug,
   href: `/anime/anime/${anime.slug}`,
   status: anime.status,
   type: anime.type || null,
@@ -176,7 +192,10 @@ const formatAnimeList = (anime: any) => ({
   synopsis: anime.synopsis?.substring(0, 150) || null,
   genreList: (anime.genres || []).map((g: any) => g.name),
   source: anime.source,
+  };
 });
+
+const resetSeenSlugs = () => seenSlugs.clear();
 
 const createResponse = (data: any, pagination: any = null) => ({
   status: "success",
@@ -340,7 +359,8 @@ function cleanTitle(title: string): string {
 
 // ==================== ENDPOINTS ====================
 
-app.get('/anime/home', async (req, res) => {
+app.get('/anime/home'
+  resetSeenSlugs();, async (req, res) => {
   const key = 'home';
   const cached = getCache(key);
   if (cached) return res.json(cached);
@@ -353,8 +373,8 @@ app.get('/anime/home', async (req, res) => {
           fetchWithTimeout(otakudesu.search({ filter: { status: 'Ongoing' } })),
           fetchWithTimeout(otakudesu.search({ filter: { status: 'Completed' } }))
         ]);
-        ongoingList = (otOn.status === 'fulfilled' ? otOn.value.animes || [] : []).slice(0, 12).map(formatAnimeList);
-        completedList = (otCom.status === 'fulfilled' ? otCom.value.animes || [] : []).slice(0, 10).map(formatAnimeList);
+        ongoingList = (otOn.status === 'fulfilled' ? otOn.value.animes || [] : []).slice(0, 12).map(formatAnimeList).filter(Boolean).filter(Boolean)
+        completedList = (otCom.status === 'fulfilled' ? otCom.value.animes || [] : []).slice(0, 10).map(formatAnimeList).filter(Boolean).filter(Boolean)
       } catch {}
     }
     const result = createResponse({ ongoing: { animeList: ongoingList }, completed: { animeList: completedList } });
@@ -371,24 +391,27 @@ const listEndpoint = (status: string) => async (req: express.Request, res: expre
   const results = await Promise.allSettled(
     providers.filter((p: any) => p.search).map((p: any) => fetchWithTimeout(p.search({ filter: { status }, page })).catch(() => undefined))
   );
-  const all = results.filter((r: any) => r.status === 'fulfilled').flatMap((r: any) => r.value?.animes || []).map(formatAnimeList);
+  const all = results.filter((r: any) => r.status === 'fulfilled').flatMap((r: any) => r.value?.animes || []).map(formatAnimeList).filter(Boolean).filter(Boolean)
   const hasNext = results.some((r: any) => r.status === 'fulfilled' && r.value?.hasNext);
   const result = createResponse({ animeList: all }, { currentPage: page, hasNextPage: hasNext });
   setCache(key, result);
   res.json(result);
 };
 
-app.get('/anime/ongoing-anime', listEndpoint('Ongoing'));
-app.get('/anime/complete-anime', listEndpoint('Completed'));
+app.get('/anime/ongoing-anime'
+  resetSeenSlugs();, listEndpoint('Ongoing'));
+app.get('/anime/complete-anime'
+  resetSeenSlugs();, listEndpoint('Completed'));
 
-app.get('/anime/search/:keyword', async (req, res) => {
+app.get('/anime/search/:keyword'
+  resetSeenSlugs();, async (req, res) => {
   const key = `search-${req.params.keyword}`;
   const cached = getCache(key);
   if (cached) return res.json(cached);
   const results = await Promise.allSettled(
     providers.filter((p: any) => p.search).map((p: any) => fetchWithTimeout(p.search({ filter: { keyword: req.params.keyword } })).catch(() => undefined))
   );
-  const all = results.filter((r: any) => r.status === 'fulfilled').flatMap((r: any) => r.value?.animes || []).map(formatAnimeList);
+  const all = results.filter((r: any) => r.status === 'fulfilled').flatMap((r: any) => r.value?.animes || []).map(formatAnimeList).filter(Boolean).filter(Boolean)
   setCache(key, createResponse({ animeList: all }));
   res.json(createResponse({ animeList: all }));
 });
@@ -556,7 +579,8 @@ app.get('/anime/genre', async (req, res) => {
   res.json(result);
 });
 
-app.get('/anime/genre/:slug', async (req, res) => {
+app.get('/anime/genre/:slug'
+  resetSeenSlugs();, async (req, res) => {
   const page = parseInt(req.query.page as string) || 1;
   const key = `genre-${req.params.slug}-${page}`;
   const cached = getCache(key);
@@ -564,7 +588,7 @@ app.get('/anime/genre/:slug', async (req, res) => {
   const results = await Promise.allSettled(
     providers.filter((p: any) => p.search).map((p: any) => fetchWithTimeout(p.search({ filter: { genres: [req.params.slug] }, page })).catch(() => undefined))
   );
-  const all = results.filter((r: any) => r.status === 'fulfilled').flatMap((r: any) => r.value?.animes || []).map(formatAnimeList);
+  const all = results.filter((r: any) => r.status === 'fulfilled').flatMap((r: any) => r.value?.animes || []).map(formatAnimeList).filter(Boolean).filter(Boolean)
   res.json(createResponse({ animeList: all }, { currentPage: page }));
 });
 
@@ -607,12 +631,13 @@ app.get('/anime/server/:serverId', (req, res) => {
   res.json(createResponse({ embedUrl: req.params.serverId }));
 });
 
-app.get('/anime/unlimited', async (req, res) => {
+app.get('/anime/unlimited'
+  resetSeenSlugs();, async (req, res) => {
   try {
     const results = await Promise.allSettled(
       providers.filter((p: any) => p.search).map((p: any) => fetchWithTimeout(p.search({ filter: { keyword: '' } })).catch(() => undefined))
     );
-    const all = results.filter((r: any) => r.status === 'fulfilled').flatMap((r: any) => r.value?.animes || []).map(formatAnimeList);
+    const all = results.filter((r: any) => r.status === 'fulfilled').flatMap((r: any) => r.value?.animes || []).map(formatAnimeList).filter(Boolean).filter(Boolean)
     res.json(createResponse({ animeList: all }));
   } catch (e: any) { res.status(500).json({ status: "error", message: e.message }); }
 });
