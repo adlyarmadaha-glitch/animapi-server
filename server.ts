@@ -188,6 +188,141 @@ const createResponse = (data: any, pagination: any = null) => ({
   pagination,
 });
 
+
+// Standard genre list (MyAnimeList official)
+const VALID_GENRES = new Set([
+  'action', 'adventure', 'comedy', 'drama', 'fantasy', 'horror', 'mystery',
+  'romance', 'sci-fi', 'slice of life', 'sports', 'supernatural', 'thriller',
+  'mecha', 'music', 'historical', 'military', 'school', 'seinen', 'shounen',
+  'shoujo', 'josei', 'isekai', 'psychological', 'ecchi', 'harem', 'magic',
+  'martial arts', 'super power', 'vampire', 'samurai', 'police', 'game',
+  'space', 'demons', 'parody', 'dementia', 'gore', 'kids', 'yaoi', 'yuri',
+  'shounen ai', 'shoujo ai', 'gender bender', 'harem', 'reverse harem',
+  'isekai', 'reincarnation', 'time travel', 'survival', 'post-apocalyptic',
+  'cyberpunk', 'steampunk', 'idol', 'performing arts', 'gourmet', 'work life',
+  'adult cast', 'iyashikei', 'love polygon', 'romantic subtext', 'girls love',
+  'boys love', 'organized crime', 'suspense', 'award winning', ' mythology',
+  'pets', 'crossdressing', 'ensemble cast', 'family', 'found family',
+  'dragon', 'vampire', 'zombie', 'ghost', 'monster', 'alien', 'robot',
+  'donghua', 'petualangan', 'aksi', 'komedi', 'fantasi', 'romansa', 'sejarah',
+  'psikologis', 'sihir', 'sekolahan', 'misteri', 'olahraga', 'supranatural',
+  'drama', 'horor', 'sci-fi', 'mecha', 'musik', 'militer', 'polisi',
+  'samurai', 'game', 'luar angkasa', 'iblis', 'vampir', 'zombie', 'hantu',
+  'monster', 'alien', 'robot', 'crossdressing', 'idola', 'gourmet',
+  'pekerjaan', 'mitologi', 'reinkarnasi', 'waktu', 'survival',
+  'pasca-apokaliptik', 'cyberpunk', 'steampunk', 'anak-anak', 'dewasa',
+  'shounen', 'shoujo', 'seinen', 'josei', 'isekai', 'ecchi', 'harem',
+  'magic', 'martial arts', 'super power'
+]);
+
+// Genre mapping (unifikasi nama genre dari berbagai provider)
+const GENRE_MAP: Record<string, string> = {
+  'sci-fi': 'sci-fi',
+  'scifi': 'sci-fi',
+  'science fiction': 'sci-fi',
+  'slice of life': 'slice of life',
+  'slice-of-life': 'slice of life',
+  'super power': 'super power',
+  'superpower': 'super power',
+  'super-power': 'super power',
+  'super natural': 'supernatural',
+  'supranatural': 'supernatural',
+  'martial arts': 'martial arts',
+  'martial-arts': 'martial arts',
+  'demon': 'demons',
+  'demons': 'demons',
+  'iblis': 'demons',
+  'vampire': 'vampire',
+  'vampir': 'vampire',
+  'zombie': 'zombie',
+  'zombi': 'zombie',
+  'ghost': 'ghost',
+  'hantu': 'ghost',
+  'magic': 'magic',
+  'sihir': 'magic',
+  'performing arts': 'performing arts',
+  'seni pertunjukan': 'performing arts',
+  'girls love': 'girls love',
+  'yuri': 'girls love',
+  'boys love': 'boys love',
+  'yaoi': 'boys love',
+  'shounen ai': 'boys love',
+  'shoujo ai': 'girls love',
+  'gourmet': 'gourmet',
+  'kuliner': 'gourmet',
+  'food': 'gourmet',
+  'organized crime': 'organized crime',
+  'mafia': 'organized crime',
+  'yakuza': 'organized crime',
+  'adult cast': 'adult cast',
+  'dewasa': 'adult cast',
+  'iyashikei': 'iyashikei',
+  'healing': 'iyashikei',
+  'idol': 'idol',
+  'idola': 'idol',
+  'donghua': 'donghua',
+  'china': 'donghua',
+  'mitologi': 'mythology',
+  'mythology': 'mythology',
+  'reinkarnasi': 'reincarnation',
+  'reincarnation': 'reincarnation',
+  'waktu': 'time travel',
+  'time travel': 'time travel',
+  'survival': 'survival',
+  'bertahan hidup': 'survival',
+  'pasca-apokaliptik': 'post-apocalyptic',
+  'post-apocalyptic': 'post-apocalyptic',
+  'post apocalyptic': 'post-apocalyptic',
+  'cyberpunk': 'cyberpunk',
+  'steampunk': 'steampunk',
+  'aksi': 'action',
+  'petualangan': 'adventure',
+  'komedi': 'comedy',
+  'fantasi': 'fantasy',
+  'romansa': 'romance',
+  'sejarah': 'historical',
+  'psikologis': 'psychological',
+  'sekolahan': 'school',
+  'misteri': 'mystery',
+  'olahraga': 'sports',
+  'musik': 'music',
+  'militer': 'military',
+  'polisi': 'police',
+  'samurai': 'samurai',
+  'game': 'game',
+  'luar angkasa': 'space',
+  'otaku culture': 'otaku culture',
+  'ecchi': 'ecchi',
+  'harem': 'harem',
+  'isekai': 'isekai',
+  'shounen': 'shounen',
+  'shoujo': 'shoujo',
+  'seinen': 'seinen',
+  'josei': 'josei',
+  'mecha': 'mecha',
+};
+
+function cleanGenre(g: string): string {
+  const cleaned = g.toLowerCase().trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  // Cek di mapping dulu
+  if (GENRE_MAP[cleaned]) return GENRE_MAP[cleaned];
+  
+  // Cek di valid genres
+  if (VALID_GENRES.has(cleaned)) return cleaned;
+  
+  // Coba cocokkan sebagian
+  for (const valid of VALID_GENRES) {
+    if (cleaned.includes(valid) || valid.includes(cleaned)) return valid;
+  }
+  
+  // Jika tidak cocok, kembalikan asli (tapi filter nanti)
+  return cleaned;
+}
+
 function cleanTitle(title: string): string {
   return title
     .replace(/subtitle indonesia/gi, '')
@@ -416,7 +551,7 @@ app.get('/anime/genre', async (req, res) => {
   );
   const all = results.filter((r: any) => r.status === 'fulfilled').flatMap((r: any) => r.value || []);
   const unique = all.filter((g: any, i: number, arr: any[]) => arr.findIndex((x: any) => x.slug === g.slug) === i);
-  const result = createResponse({ genreList: unique.map((g: any) => ({ title: g.name, genreId: g.slug, href: `/anime/genre/${g.slug}` })) });
+  const result = createResponse({ genreList: unique.map((g: any) => ({ title: cleanGenre(g.name), genreId: cleanGenre(g.slug), href: `/anime/genre/${cleanGenre(g.slug)}` })) });
   setCache(key, result);
   res.json(result);
 });
