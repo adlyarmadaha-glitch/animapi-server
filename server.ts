@@ -206,16 +206,6 @@ const formatAnimeList = (anime: any) => {
   };
 };
 
-const createResponse = (data: any, pagination: any = null) => ({
-  status: "success",
-  creator: "Animapi",
-  statusCode: 200,
-  message: "",
-  ok: true,
-  data,
-  pagination,
-});
-
 // ==================== ENDPOINTS ====================
 
 app.get('/anime/home', async (req, res) => {
@@ -231,8 +221,8 @@ app.get('/anime/home', async (req, res) => {
         fetchWithTimeout(ot.search({ filter: { status: 'Ongoing' } })),
         fetchWithTimeout(ot.search({ filter: { status: 'Completed' } }))
       ]);
-      ongoing = (on.status === 'fulfilled' ? on.value.animes || [] : []).slice(0, 12).map(formatAnimeList).filter(Boolean);
-      completed = (com.status === 'fulfilled' ? com.value.animes || [] : []).slice(0, 10).map(formatAnimeList).filter(Boolean);
+      ongoing = (on.status === 'fulfilled' ? on.value.animes || [] : []).slice(0, 12).map(formatAnimeList).filter(Boolean).filter(Boolean);
+      completed = (com.status === 'fulfilled' ? com.value.animes || [] : []).slice(0, 10).map(formatAnimeList).filter(Boolean).filter(Boolean);
     }
     const result = createResponse({ ongoing: { animeList: ongoing }, completed: { animeList: completed } });
     setCache(key, result);
@@ -249,7 +239,7 @@ const listEndpoint = (status: string) => async (req: express.Request, res: expre
   const results = await Promise.allSettled(
     providers.filter((p: any) => p.search).map((p: any) => fetchWithTimeout(p.search({ filter: { status }, page })).catch(() => undefined))
   );
-  const all = results.filter((r: any) => r.status === 'fulfilled').flatMap((r: any) => r.value?.animes || []).map(formatAnimeList).filter(Boolean);
+  const all = results.filter((r: any) => r.status === 'fulfilled').flatMap((r: any) => r.value?.animes || []).map(formatAnimeList).filter(Boolean).filter(Boolean);
   const hasNext = results.some((r: any) => r.status === 'fulfilled' && r.value?.hasNext);
   const result = createResponse({ animeList: all }, { currentPage: page, hasNextPage: hasNext });
   setCache(key, result);
@@ -267,7 +257,7 @@ app.get('/anime/search/:keyword', async (req, res) => {
   const results = await Promise.allSettled(
     providers.filter((p: any) => p.search).map((p: any) => fetchWithTimeout(p.search({ filter: { keyword: req.params.keyword } })).catch(() => undefined))
   );
-  const all = results.filter((r: any) => r.status === 'fulfilled').flatMap((r: any) => r.value?.animes || []).map(formatAnimeList).filter(Boolean);
+  const all = results.filter((r: any) => r.status === 'fulfilled').flatMap((r: any) => r.value?.animes || []).map(formatAnimeList).filter(Boolean).filter(Boolean);
   setCache(key, createResponse({ animeList: all }));
   res.json(createResponse({ animeList: all }));
 });
@@ -405,7 +395,7 @@ app.get('/anime/genre/:slug', async (req, res) => {
   const results = await Promise.allSettled(
     providers.filter((p: any) => p.search).map((p: any) => fetchWithTimeout(p.search({ filter: { genres: [req.params.slug] }, page })).catch(() => undefined))
   );
-  const all = results.filter((r: any) => r.status === 'fulfilled').flatMap((r: any) => r.value?.animes || []).map(formatAnimeList).filter(Boolean);
+  const all = results.filter((r: any) => r.status === 'fulfilled').flatMap((r: any) => r.value?.animes || []).map(formatAnimeList).filter(Boolean).filter(Boolean);
   res.json(createResponse({ animeList: all }, { currentPage: page }));
 });
 
@@ -458,7 +448,7 @@ app.get('/anime/unlimited', async (req, res) => {
     const results = await Promise.allSettled(
       providers.filter((p: any) => p.search).map((p: any) => fetchWithTimeout(p.search({ filter: { keyword: '' } })).catch(() => undefined))
     );
-    const all = results.filter((r: any) => r.status === 'fulfilled').flatMap((r: any) => r.value?.animes || []).map(formatAnimeList).filter(Boolean);
+    const all = results.filter((r: any) => r.status === 'fulfilled').flatMap((r: any) => r.value?.animes || []).map(formatAnimeList).filter(Boolean).filter(Boolean);
     res.json(createResponse({ animeList: all }));
   } catch(e: any) { res.status(500).json({ status: "error", message: e.message }); }
 });
