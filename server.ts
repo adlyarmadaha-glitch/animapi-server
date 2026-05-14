@@ -19,19 +19,18 @@ const getCache = (key: string) => {
 const setCache = (key: string, data: any) => cache.set(key, { data, time: Date.now() });
 
 // Provider variables
-let Animasu: any, AnimeIndo: any, Samehadaku: any, Anoboy: any, Jikan: any, AniSkip: any, Oploverz: any, Anichin: any, Nimegami: any, Mynimeku: any, KuroNime: any, Meownime: any, Doroni: any, Neonime: any, Lendrive: any, NontonAnimeID: any, MP4Stream: any;
+let Otakudesu: any, Animasu: any, AnimeIndo: any, Samehadaku: any, Anoboy: any, Jikan: any, AniSkip: any, Oploverz: any, Anichin: any, Nimegami: any, Mynimeku: any, KuroNime: any, Meownime: any, Doroni: any, Neonime: any, Lendrive: any, NontonAnimeID: any;
 const providers: any[] = [];
 const streamProviders: any[] = [];
 
 async function loadProviders() {
-  // MP4Stream (eks Otakudesu) - stabil MP4 360-1080p
   try {
     ({ Otakudesu } = await import('./provider/otakudesu/index.js'));
-    const mp4stream = new Otakudesu(); mp4stream.name = 'mp4stream';
-    providers.push(mp4stream);
-    streamProviders.splice(0, 0, mp4stream); // prioritas streaming
-    console.log('✅ MP4Stream (Otakudesu)');
-  } catch(e) { console.warn('⚠️ MP4Stream:', (e as Error).message); }
+    const ot = new Otakudesu(); ot.name = 'otakudesu';
+    providers.push(ot); streamProviders.push(ot);
+    console.log('✅ Otakudesu');
+  } catch(e) { console.warn('⚠️ Otakudesu:', (e as Error).message); }
+
 
 
 
