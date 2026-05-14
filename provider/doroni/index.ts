@@ -33,7 +33,7 @@ export class Doroni extends Provider {
     const synopsis = $(".sinopc p, .entry-content p").first().text().trim();
     const genres: Genre[] = [];
     $(".genxed a, .genre-info a").each((_, el) => {
-      const name = $(el).text().trim();
+const name = $(el).text().trim();
       const href = $(el).attr("href") || "";
       const gSlug = href.split("/genres/")[1]?.replace("/", "") || name.toLowerCase();
       genres.push({ name, slug: gSlug, source: this.name });
