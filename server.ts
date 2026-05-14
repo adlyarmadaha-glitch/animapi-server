@@ -43,7 +43,7 @@ async function loadProviders() {
   try {
     ({ Otakudesu } = await import('./provider/otakudesu/index.js'));
     const ot = new Otakudesu(); ot.name = 'otakudesu';
-    providers.push(ot); // streaming dinonaktifkan (desustream error)
+    providers.push(ot); streamProviders.push(ot);
     console.log('✅ Otakudesu');
   } catch(e) { console.warn('⚠️ Otakudesu:', (e as Error).message); }
 
@@ -68,7 +68,7 @@ async function loadProviders() {
   try {
     ({ Samehadaku } = await import('./provider/samehadaku/index.js'));
     const sm = new Samehadaku(); sm.name = 'samehadaku';
-    providers.push(sm); // stream dinonaktifkan sementara
+    providers.push(sm); streamProviders.push(sm);
     console.log('✅ Samehadaku');
   } catch(e) { console.warn('⚠️ Samehadaku:', (e as Error).message); }
 
@@ -147,7 +147,7 @@ async function loadProviders() {
   try {
     ({ AnimeID } = await import('./provider/animeid/index.js'));
     const animeid = new AnimeID(); animeid.name = 'animeid';
-    providers.push(animeid); // stream dinonaktifkan sementara
+    providers.push(animeid); streamProviders.push(animeid);
     console.log('✅ AnimeID (154.26.137.28)');
   } catch(e) { console.warn('⚠️ AnimeID:', (e as Error).message); }
 
