@@ -9,7 +9,6 @@ export class NontonAnimeID extends Provider {
       cache: true,
       ...options,
     });
-    // Nonaktifkan verifikasi SSL untuk IP tanpa sertifikat valid
     this.api = axios.create({
       httpsAgent: new (require('https').Agent)({ rejectUnauthorized: false }),
       timeout: 15000,
@@ -23,7 +22,6 @@ export class NontonAnimeID extends Provider {
     }).catch(() => ({ data: '' }));
     const $ = this.cheerio.load(res.data);
 
-    // Cari link ke halaman anime
     const slugs: string[] = [];
     $(".animepost a, .listupd .bs a, .eplister a, article a").each((_, el) => {
       const href = $(el).attr("href");
@@ -45,6 +43,7 @@ export class NontonAnimeID extends Provider {
     const cached = this.cache.get(`detail-${this.name}-${slug}`);
     if (cached && this.options.cache) return cached;
 
+    // Ambil halaman 1 dulu untuk dapat info jumlah episode
     const res = await this.api.get(`${this.baseUrl}/anime/${slug}/`).catch(() => ({ data: '' }));
     const $ = this.cheerio.load(res.data);
 
@@ -61,7 +60,13 @@ export class NontonAnimeID extends Provider {
       genres.push({ name, slug: gSlug, source: this.name });
     });
 
-    // Episodes
+    // Deteksi jumlah total episode dari pagination (misal: "Episode 1-100 dari 1150")
+    let totalEpisodes = 0;
+    const paginationText = $(".pagination, .ep-pagination, .pagenavix").text();
+    const match = paginationText.match(/dari\s*(\d+)/i) || paginationText.match(/of\s*(\d+)/i) || paginationText.match(/(\d+)\s*episodes?/i);
+    if (match) totalEpisodes = parseInt(match[1]);
+
+    // Ambil episode dari halaman pertama
     const episodes: Episode[] = [];
     $(".eplister li a").each((_, el) => {
       const $a = $(el);
@@ -70,6 +75,24 @@ export class NontonAnimeID extends Provider {
       const epSlug = href.split("/episode/")[1]?.replace("/", "") || "";
       episodes.push({ name, slug: epSlug, source: this.name });
     });
+
+    // Jika ada pagination, ambil halaman berikutnya untuk episode tambahan
+    if (totalEpisodes > episodes.length) {
+      const totalPages = Math.ceil(totalEpisodes / episodes.length || 20);
+      for (let p = 2; p <= totalPages; p++) {
+        try {
+          const pageRes = await this.api.get(`${this.baseUrl}/anime/${slug}/page/${p}/`).catch(() => ({ data: '' }));
+          const $page = this.cheerio.load(pageRes.data);
+          $page(".eplister li a").each((_, el) => {
+            const $a = $page(el);
+            const name = $a.text().trim();
+            const href = $a.attr("href") || "";
+            const epSlug = href.split("/episode/")[1]?.replace("/", "") || "";
+            episodes.push({ name, slug: epSlug, source: this.name });
+          });
+        } catch {}
+      }
+    }
 
     const data: Anime = {
       slug,
