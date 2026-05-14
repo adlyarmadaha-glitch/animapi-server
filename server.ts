@@ -43,7 +43,7 @@ async function loadProviders() {
   try {
     ({ Otakudesu } = await import('./provider/otakudesu/index.js'));
     const ot = new Otakudesu(); ot.name = 'otakudesu';
-    providers.push(ot); streamProviders.push(ot);
+    providers.push(ot); // streaming dinonaktifkan (desustream error)
     console.log('✅ Otakudesu');
   } catch(e) { console.warn('⚠️ Otakudesu:', (e as Error).message); }
 
