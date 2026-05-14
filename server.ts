@@ -19,11 +19,21 @@ const getCache = (key: string) => {
 const setCache = (key: string, data: any) => cache.set(key, { data, time: Date.now() });
 
 // Provider variables
-let Otakudesu: any, Animasu: any, AnimeIndo: any, Samehadaku: any, Anoboy: any, Jikan: any, AniSkip: any, Oploverz: any, Anichin: any, Nimegami: any, Mynimeku: any, KuroNime: any, Meownime: any, Doroni: any, Neonime: any, Lendrive: any, NontonAnimeID: any;
+let Otakudesu: any, Animasu: any, AnimeIndo: any, Samehadaku: any, Anoboy: any, Jikan: any, AniSkip: any, Oploverz: any, Anichin: any, Nimegami: any, Mynimeku: any, KuroNime: any, Meownime: any, Doroni: any, Neonime: any, Lendrive: any, NontonAnimeID: any, MP4Stream: any;
 const providers: any[] = [];
 const streamProviders: any[] = [];
 
 async function loadProviders() {
+  // MP4Stream sebagai prioritas utama streaming (stabil, 360p-1080p)
+  try {
+    ({ MP4Stream } = await import('./provider/mp4stream/index.js'));
+    const mp4stream = new MP4Stream(); mp4stream.name = 'mp4stream';
+    providers.push(mp4stream);
+    streamProviders.splice(0, 0, mp4stream); // taruh di depan sebagai prioritas
+    console.log('✅ MP4Stream (prioritas streaming)');
+  } catch(e) { console.warn('⚠️ MP4Stream:', (e as Error).message); }
+
+
   try {
     ({ Otakudesu } = await import('./provider/otakudesu/index.js'));
     const ot = new Otakudesu(); ot.name = 'otakudesu';
