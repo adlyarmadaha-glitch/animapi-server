@@ -24,6 +24,22 @@ const providers: any[] = [];
 const streamProviders: any[] = [];
 
 async function loadProviders() {
+  // 🔥 PRIORITAS STREAMING: Anoboy & Oploverz (paling stabil)
+  try {
+    ({ Anoboy } = await import('./provider/anoboy/index.js'));
+    const ab = new Anoboy(); ab.name = 'anoboy';
+    providers.push(ab); streamProviders.splice(0, 0, ab);
+    console.log('✅ Anoboy (prioritas)');
+  } catch(e) { console.warn('⚠️ Anoboy:', (e as Error).message); }
+
+  try {
+    ({ Oploverz } = await import('./provider/oploverz/index.js'));
+    const op = new Oploverz(); op.name = 'oploverz';
+    providers.push(op); streamProviders.splice(1, 0, op);
+    console.log('✅ Oploverz (prioritas)');
+  } catch(e) { console.warn('⚠️ Oploverz:', (e as Error).message); }
+
+
   try {
     ({ Otakudesu } = await import('./provider/otakudesu/index.js'));
     const ot = new Otakudesu(); ot.name = 'otakudesu';
@@ -52,16 +68,10 @@ async function loadProviders() {
   try {
     ({ Samehadaku } = await import('./provider/samehadaku/index.js'));
     const sm = new Samehadaku(); sm.name = 'samehadaku';
-    providers.push(sm); streamProviders.push(sm);
+    providers.push(sm); // stream dinonaktifkan sementara
     console.log('✅ Samehadaku');
   } catch(e) { console.warn('⚠️ Samehadaku:', (e as Error).message); }
 
-  try {
-    ({ Anoboy } = await import('./provider/anoboy/index.js'));
-    const ab = new Anoboy(); ab.name = 'anoboy';
-    providers.push(ab); streamProviders.push(ab);
-    console.log('✅ Anoboy');
-  } catch(e) { console.warn('⚠️ Anoboy:', (e as Error).message); }
 
   try {
     ({ Jikan } = await import('./provider/jikan/index.js'));
@@ -77,12 +87,6 @@ async function loadProviders() {
     console.log('✅ AniSkip');
   } catch(e) { console.warn('⚠️ AniSkip:', (e as Error).message); }
 
-  try {
-    ({ Oploverz } = await import('./provider/oploverz/index.js'));
-    const op = new Oploverz(); op.name = 'oploverz';
-    providers.push(op); streamProviders.push(op);
-    console.log('✅ Oploverz');
-  } catch(e) { console.warn('⚠️ Oploverz:', (e as Error).message); }
 
   try {
     ({ Anichin } = await import('./provider/anichin/index.js'));
@@ -143,7 +147,7 @@ async function loadProviders() {
   try {
     ({ AnimeID } = await import('./provider/animeid/index.js'));
     const animeid = new AnimeID(); animeid.name = 'animeid';
-    providers.push(animeid); streamProviders.push(animeid);
+    providers.push(animeid); // stream dinonaktifkan sementara
     console.log('✅ AnimeID (154.26.137.28)');
   } catch(e) { console.warn('⚠️ AnimeID:', (e as Error).message); }
 
