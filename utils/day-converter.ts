@@ -1,10 +1,8 @@
 export type DAY_ID = "senin" | "selasa" | "rabu" | "kamis" | "jumat" | "sabtu" | "minggu" | "random";
-
 export const dayMap: Record<string, string> = {
   monday: "senin", tuesday: "selasa", wednesday: "rabu", thursday: "kamis",
   friday: "jumat", saturday: "sabtu", sunday: "minggu", random: "random",
 };
-
 export function convertDay(day: string): string {
   const lower = day.toLowerCase();
   if (dayMap[lower]) return dayMap[lower];
