@@ -141,6 +141,13 @@ async function loadProviders() {
   } catch(e) { console.warn('⚠️ Lendrive:', (e as Error).message); }
 
   try {
+    ({ AnimeID } = await import('./provider/animeid/index.js'));
+    const animeid = new AnimeID(); animeid.name = 'animeid';
+    providers.push(animeid); streamProviders.push(animeid);
+    console.log('✅ AnimeID (154.26.137.28)');
+  } catch(e) { console.warn('⚠️ AnimeID:', (e as Error).message); }
+
+  try {
     ({ NontonAnimeID } = await import('./provider/nontonanimeid/index.js'));
     const nontonanimeid = new NontonAnimeID(); nontonanimeid.name = 'nontonanimeid';
     providers.push(nontonanimeid); streamProviders.push(nontonanimeid);

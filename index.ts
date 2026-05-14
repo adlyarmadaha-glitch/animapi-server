@@ -14,3 +14,4 @@ export { Meownime } from "./provider/meownime/index.js";
 export { Doroni } from "./provider/doroni/index.js";
 export { Neonime } from "./provider/neonime/index.js";
 export { Lendrive } from "./provider/lendrive/index.js";
+export { AnimeID } from "./provider/animeid/index.js";
