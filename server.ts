@@ -147,7 +147,7 @@ async function loadProviders() {
   try {
     ({ AnimeID } = await import('./provider/animeid/index.js'));
     const animeid = new AnimeID(); animeid.name = 'animeid';
-    providers.push(animeid); streamProviders.push(animeid);
+    providers.push(animeid); // AnimeID stream dinonaktifkan (IP tidak stabil)
     console.log('✅ AnimeID (154.26.137.28)');
   } catch(e) { console.warn('⚠️ AnimeID:', (e as Error).message); }
 
