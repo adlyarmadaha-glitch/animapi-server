@@ -19,7 +19,7 @@ const getCache = (key: string) => {
 const setCache = (key: string, data: any) => cache.set(key, { data, time: Date.now() });
 
 // Provider variables
-let Otakudesu: any, Animasu: any, AnimeIndo: any, Samehadaku: any, Anoboy: any, Jikan: any, AniSkip: any, Oploverz: any, Anichin: any, Nimegami: any, Mynimeku: any, KuroNime: any, Meownime: any, Doroni: any, Neonime: any, Lendrive: any;
+let Otakudesu: any, Animasu: any, AnimeIndo: any, Samehadaku: any, Anoboy: any, Jikan: any, AniSkip: any, Oploverz: any, Anichin: any, Nimegami: any, Mynimeku: any, KuroNime: any, Meownime: any, Doroni: any, Neonime: any, Lendrive: any, NontonAnimeID: any;
 const providers: any[] = [];
 const streamProviders: any[] = [];
 
@@ -135,6 +135,13 @@ async function loadProviders() {
     providers.push(lendrive); streamProviders.push(lendrive);
     console.log('✅ Lendrive');
   } catch(e) { console.warn('⚠️ Lendrive:', (e as Error).message); }
+
+  try {
+    ({ NontonAnimeID } = await import('./provider/nontonanimeid/index.js'));
+    const nontonanimeid = new NontonAnimeID(); nontonanimeid.name = 'nontonanimeid';
+    providers.push(nontonanimeid); streamProviders.push(nontonanimeid);
+    console.log('✅ NontonAnimeID');
+  } catch(e) { console.warn('⚠️ NontonAnimeID:', (e as Error).message); }
 
   console.log(`🚀 ${providers.length} providers ready`);
 }
