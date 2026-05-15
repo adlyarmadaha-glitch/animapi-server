@@ -1,0 +1,20 @@
+[
+  {
+    "method": "GET",
+    "path": "/admin",
+    "status": 200,
+    "ip": "127.0.0.1",
+    "duration": 7,
+    "userAgent": "curl/8.5.0",
+    "time": "2026-05-15T03:52:32.762Z"
+  },
+  {
+    "method": "GET",
+    "path": "/anime/home",
+    "status": 200,
+    "ip": "127.0.0.1",
+    "duration": 2631,
+    "userAgent": "curl/8.5.0",
+    "time": "2026-05-15T03:52:35.431Z"
+  }
+]
