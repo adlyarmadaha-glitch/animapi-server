@@ -5,7 +5,7 @@ import axios from "axios";
 export class AnichinDonghua extends Provider {
   constructor(options?: ProviderOptions) {
     super("anichin-donghua", {
-      baseUrl: "https://anichin.co",
+      baseUrl: "https://anichin.cafe",
       cache: true,
       ...options,
     });
@@ -14,7 +14,7 @@ export class AnichinDonghua extends Provider {
       timeout: 15000,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': 'https://anichin.co/',
+        'Referer': 'https://anichin.cafe/',
       },
     });
   }
@@ -24,17 +24,19 @@ export class AnichinDonghua extends Provider {
     try {
       const url = keyword
         ? `${this.baseUrl}/?s=${encodeURIComponent(keyword)}&page=${page}`
-        : `${this.baseUrl}/donghua/page/${page}/`;
+        : `${this.baseUrl}/page/${page}/`;
       const res = await this.api.get(url);
       const $ = this.cheerio.load(res.data);
       const slugs: string[] = [];
       
-      $(".listupd .bs a, .animepost a, article a[href*='/donghua/']").each((_, el) => {
+      // Cari link seri: /seri/nama-seri/
+      $("a[href*='/seri/']").each((_, el) => {
         const href = $(el).attr("href");
         if (href) {
-          const parts = href.replace(/\/$/, "").split("/");
-          const slug = parts[parts.length - 1] || "";
-          if (slug && !slugs.includes(slug)) slugs.push(slug);
+          const match = href.match(/\/seri\/([^/]+)\/?/);
+          if (match && match[1] && !slugs.includes(match[1])) {
+            slugs.push(match[1]);
+          }
         }
       });
 
@@ -43,7 +45,8 @@ export class AnichinDonghua extends Provider {
       )).filter((a): a is Anime => a !== undefined);
 
       return { animes, hasNext: $(".pagination .next").length > 0 };
-    } catch {
+    } catch (e) {
+      console.error('[Donghua] Search error:', e);
       return { animes: [], hasNext: false };
     }
   }
@@ -53,24 +56,24 @@ export class AnichinDonghua extends Provider {
     if (cached) return cached;
 
     try {
-      const res = await this.api.get(`${this.baseUrl}/donghua/${slug}/`);
+      const res = await this.api.get(`${this.baseUrl}/seri/${slug}/`);
       const $ = this.cheerio.load(res.data);
-      const title = $("h1.entry-title").text().trim();
-      const posterUrl = $(".thumb img, .anime-thumb img").attr("src") || "";
-      const synopsis = $(".sinopc p, .entry-content p").first().text().trim();
+      
+      // Judul dari h1 atau dari struktur spesifik anichin.cafe
+      const title = $("h1.entry-title").text().trim() || $(".data h1").text().trim() || slug.replace(/-/g, ' ');
+      const posterUrl = $(".thumb img, .poster img, img.attachment-").attr("src") || "";
+      const synopsis = $(".sinopc p, .entry-content p, .synopsis p").first().text().trim() || "";
 
       // Genre
       const genres: Genre[] = [];
-      $(".genxed a, .genre-info a, .genres a").each((_, el) => {
+      $(".genxed a, .genre-info a, .genres a, a[href*='/genre/']").each((_, el) => {
         const name = $(el).text().trim();
-        const href = $(el).attr("href") || "";
-        const gSlug = href.split("/").filter(Boolean).pop() || name.toLowerCase();
-        if (name) genres.push({ name, slug: gSlug, source: this.name });
+        if (name) genres.push({ name, slug: name.toLowerCase().replace(/\s+/g, '-'), source: this.name });
       });
 
-      // Episode (dari berbagai kemungkinan selector)
+      // Episodes (dari berbagai kemungkinan selector)
       const episodes: Episode[] = [];
-      $(".eplister li a, .episodelist li a, .bxcl ul li a").each((_, el) => {
+      $(".eplister li a, .episodelist li a, .bxcl ul li a, a[href*='/episode/']").each((_, el) => {
         const $a = $(el);
         const name = $a.text().trim();
         const href = $a.attr("href") || "";
@@ -95,21 +98,31 @@ export class AnichinDonghua extends Provider {
 
   async streams(slug: string): Promise<Stream[]> {
     try {
-      const res = await this.api.get(`${this.baseUrl}/donghua/${slug}/`);
-      const $ = this.cheerio.load(res.data);
-      const streams: Stream[] = [];
+      // Coba beberapa kemungkinan URL episode
+      const urls = [
+        `${this.baseUrl}/episode/${slug}/`,
+        `${this.baseUrl}/seri/${slug}/`,
+        `${this.baseUrl}/?p=${slug}`,
+      ];
       
-      // Cari server streaming (termasuk ok.ru)
-      $(".mirrorstream ul li a, .player-embed iframe, .downloads a").each((_, el) => {
-        const url = $(el).attr("src") || $(el).attr("href") || "";
-        const name = $(el).text().trim() || $(el).attr("title") || "Stream";
-        if (url && url.startsWith("http")) {
-          const label = url.includes("ok.ru") ? `OK.ru - ${name}` : name;
-          streams.push({ name: label, url, source: this.name });
-        }
-      });
+      for (const url of urls) {
+        try {
+          const res = await this.api.get(url);
+          const $ = this.cheerio.load(res.data);
+          const streams: Stream[] = [];
+          
+          $(".mirrorstream ul li a, iframe, video source, .player-embed iframe").each((_, el) => {
+            const src = $(el).attr("src") || $(el).attr("href") || "";
+            const name = $(el).text().trim() || $(el).attr("title") || "Stream";
+            if (src && src.startsWith("http")) {
+              streams.push({ name, url: src, source: this.name });
+            }
+          });
 
-      return streams;
+          if (streams.length > 0) return streams;
+        } catch {}
+      }
+      return [];
     } catch { return []; }
   }
 }
