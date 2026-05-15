@@ -1,10 +1,9 @@
 import express from 'express';
 import cors from 'cors';
+import { Otakudesu, Animasu, AnimeIndo, Samehadaku, Anoboy, Oploverz, Jikan, AniSkip, Anichin, Nimegami, Mynimeku, KuroNime, Meownime, Doroni, Neonime, Lendrive, NontonAnimeID } from './index.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BIND_ADDR = '0.0.0.0';
-
 app.use(cors());
 app.use(express.json());
 
@@ -18,153 +17,44 @@ const getCache = (key: string) => {
 };
 const setCache = (key: string, data: any) => cache.set(key, { data, time: Date.now() });
 
-// Provider variables
-const providers: any[] = [];
-const streamProviders: any[] = [];
+// Provider instances
+const otakudesu = new Otakudesu(); otakudesu.name = 'otakudesu';
+const animasu = new Animasu(); animasu.name = 'animasu';
+const animeindo = new AnimeIndo(); animeindo.name = 'animeindo';
+const samehadaku = new Samehadaku(); samehadaku.name = 'samehadaku';
+const anoboy = new Anoboy(); anoboy.name = 'anoboy';
+const oploverz = new Oploverz(); oploverz.name = 'oploverz';
+const jikan = new Jikan(); jikan.name = 'jikan';
+const aniskip = new AniSkip(); aniskip.name = 'aniskip';
+const anichin = new Anichin(); anichin.name = 'anichin';
+const nimegami = new Nimegami(); nimegami.name = 'nimegami';
+const mynimeku = new Mynimeku(); mynimeku.name = 'mynimeku';
+const kuronime = new KuroNime(); kuronime.name = 'kuronime';
+const meownime = new Meownime(); meownime.name = 'meownime';
+const doroni = new Doroni(); doroni.name = 'doroni';
+const neonime = new Neonime(); neonime.name = 'neonime';
+const lendrive = new Lendrive(); lendrive.name = 'lendrive';
+const nontonanimeid = new NontonAnimeID(); nontonanimeid.name = 'nontonanimeid';
 
-async function loadProviders() {
-  // 🔥 PRIORITAS STREAMING: Anoboy & Oploverz (paling stabil)
-  try {
-    ({ Anoboy } = await import('./provider/anoboy/index.js'));
-    const ab = new Anoboy(); ab.name = 'anoboy';
-    providers.push(ab); streamProviders.splice(0, 0, ab);
-    console.log('✅ Anoboy (prioritas)');
-  } catch(e) { console.warn('⚠️ Anoboy:', (e as Error).message); }
+const providers: any[] = [otakudesu, animasu, animeindo, samehadaku, anoboy, oploverz, jikan, aniskip, anichin, nimegami, mynimeku, kuronime, meownime, doroni, neonime, lendrive, nontonanimeid];
+const streamProviders: any[] = [otakudesu, animasu, animeindo, samehadaku, anoboy, oploverz, anichin, nimegami, mynimeku, kuronime, meownime, doroni, neonime, lendrive, nontonanimeid];
 
-  try {
-    ({ Oploverz } = await import('./provider/oploverz/index.js'));
-    const op = new Oploverz(); op.name = 'oploverz';
-    providers.push(op); streamProviders.splice(1, 0, op);
-    console.log('✅ Oploverz (prioritas)');
-  } catch(e) { console.warn('⚠️ Oploverz:', (e as Error).message); }
-
-
-  try {
-    ({ Otakudesu } = await import('./provider/otakudesu/index.js'));
-    const ot = new Otakudesu(); ot.name = 'otakudesu';
-    providers.push(ot); streamProviders.push(ot);
-    console.log('✅ Otakudesu');
-  } catch(e) { console.warn('⚠️ Otakudesu:', (e as Error).message); }
-
-
-
-
-
-  try {
-    ({ Animasu } = await import('./provider/animasu/index.js'));
-    const an = new Animasu(); an.name = 'animasu';
-    providers.push(an); streamProviders.splice(0, 0, an);
-    console.log('✅ Animasu');
-  } catch(e) { console.warn('⚠️ Animasu:', (e as Error).message); }
-
-  try {
-    ({ AnimeIndo } = await import('./provider/anime-indo/index.js'));
-    const ai = new AnimeIndo(); ai.name = 'animeindo';
-    providers.push(ai); streamProviders.push(ai);
-    console.log('✅ AnimeIndo');
-  } catch(e) { console.warn('⚠️ AnimeIndo:', (e as Error).message); }
-
-  try {
-    ({ Samehadaku } = await import('./provider/samehadaku/index.js'));
-    const sm = new Samehadaku(); sm.name = 'samehadaku';
-    providers.push(sm); streamProviders.push(sm);
-    console.log('✅ Samehadaku');
-  } catch(e) { console.warn('⚠️ Samehadaku:', (e as Error).message); }
-
-
-  try {
-    ({ Jikan } = await import('./provider/jikan/index.js'));
-    const jk = new Jikan(); jk.name = 'jikan';
-    providers.push(jk);
-    console.log('✅ Jikan');
-  } catch(e) { console.warn('⚠️ Jikan:', (e as Error).message); }
-
-  try {
-    ({ AniSkip } = await import('./provider/aniskip/index.js'));
-    const as = new AniSkip(); as.name = 'aniskip';
-    providers.push(as);
-    console.log('✅ AniSkip');
-  } catch(e) { console.warn('⚠️ AniSkip:', (e as Error).message); }
-
-
-  try {
-    ({ Anichin } = await import('./provider/anichin/index.js'));
-    const anichin = new Anichin(); anichin.name = 'anichin';
-    providers.push(anichin); streamProviders.push(anichin);
-    console.log('✅ Anichin');
-  } catch(e) { console.warn('⚠️ Anichin:', (e as Error).message); }
-
-  try {
-    ({ Nimegami } = await import('./provider/nimegami/index.js'));
-    const nimegami = new Nimegami(); nimegami.name = 'nimegami';
-    providers.push(nimegami); streamProviders.push(nimegami);
-    console.log('✅ Nimegami');
-  } catch(e) { console.warn('⚠️ Nimegami:', (e as Error).message); }
-
-  try {
-    ({ Mynimeku } = await import('./provider/mynimeku/index.js'));
-    const mynimeku = new Mynimeku(); mynimeku.name = 'mynimeku';
-    providers.push(mynimeku); streamProviders.push(mynimeku);
-    console.log('✅ Mynimeku');
-  } catch(e) { console.warn('⚠️ Mynimeku:', (e as Error).message); }
-
-  try {
-    ({ KuroNime } = await import('./provider/kuronime/index.js'));
-    const kuronime = new KuroNime(); kuronime.name = 'kuronime';
-    providers.push(kuronime); streamProviders.push(kuronime);
-    console.log('✅ KuroNime');
-  } catch(e) { console.warn('⚠️ KuroNime:', (e as Error).message); }
-
-  try {
-    ({ Meownime } = await import('./provider/meownime/index.js'));
-    const meownime = new Meownime(); meownime.name = 'meownime';
-    providers.push(meownime); streamProviders.push(meownime);
-    console.log('✅ Meownime');
-  } catch(e) { console.warn('⚠️ Meownime:', (e as Error).message); }
-
-  try {
-    ({ Doroni } = await import('./provider/doroni/index.js'));
-    const doroni = new Doroni(); doroni.name = 'doroni';
-    providers.push(doroni); streamProviders.push(doroni);
-    console.log('✅ Doroni');
-  } catch(e) { console.warn('⚠️ Doroni:', (e as Error).message); }
-
-  try {
-    ({ Neonime } = await import('./provider/neonime/index.js'));
-    const neonime = new Neonime(); neonime.name = 'neonime';
-    providers.push(neonime); streamProviders.push(neonime);
-    console.log('✅ Neonime');
-  } catch(e) { console.warn('⚠️ Neonime:', (e as Error).message); }
-
-  try {
-    ({ Lendrive } = await import('./provider/lendrive/index.js'));
-    const lendrive = new Lendrive(); lendrive.name = 'lendrive';
-    providers.push(lendrive); streamProviders.push(lendrive);
-    console.log('✅ Lendrive');
-  } catch(e) { console.warn('⚠️ Lendrive:', (e as Error).message); }
-
-  try {
-
-  try {
-
-  console.log(`🚀 ${providers.length} providers ready`);
-}
-
-// Helpers
+// Helper
 const fetchWithTimeout = <T>(promise: Promise<T>, ms = 10000): Promise<T> =>
   Promise.race([promise, new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))]);
 
 function cleanTitle(title: string): string {
-  return title
-    .replace(/subtitle indonesia/gi, '').replace(/sub indo/gi, '')
-    .replace(/season \d+/gi, '').replace(/part \d+/gi, '')
-    .replace(/episode \d+/gi, '').replace(/batch/gi, '').replace(/bd/gi, '')
-    .replace(/\b(serial|tv|movie|ova|ona|special|live action|series)\b/gi, '')
-    .replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim();
+  return title.replace(/subtitle indonesia/gi, '').replace(/sub indo/gi, '').replace(/season \d+/gi, '').replace(/part \d+/gi, '').replace(/episode \d+/gi, '').replace(/batch/gi, '').replace(/bd/gi, '').replace(/\b(serial|tv|movie|ova|ona|special|live action|series)\b/gi, '').replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim();
 }
 
 const createResponse = (data: any, pagination: any = null) => ({
-  status: "success", creator: "Animapi", statusCode: 200, message: "", ok: true, data, pagination,
+  status: "success",
+  creator: "AnimAPI",
+  statusCode: 200,
+  message: "",
+  ok: true,
+  data,
+  pagination,
 });
 
 const seenSlugs = new Set<string>();
@@ -181,9 +71,13 @@ const formatAnimeList = (anime: any) => {
   if (seenSlugs.has(slug)) return null;
   seenSlugs.add(slug);
   return {
-    title, poster: anime.posterUrl, animeId: slug,
-    href: `/anime/anime/${slug}`, status: anime.status,
-    type: anime.type || null, score: anime.rating?.toString() || null,
+    title,
+    poster: anime.posterUrl,
+    animeId: slug,
+    href: `/anime/anime/${slug}`,
+    status: anime.status,
+    type: anime.type || null,
+    score: anime.rating?.toString() || null,
     episodes: anime.episodes?.length || null,
     synopsis: anime.synopsis?.substring(0, 150) || null,
     genreList: (anime.genres || []).map((g: any) => typeof g === 'string' ? g : g.name).filter(Boolean),
@@ -192,23 +86,21 @@ const formatAnimeList = (anime: any) => {
 };
 
 // ==================== ENDPOINTS ====================
-
 app.get('/anime/home', async (req, res) => {
   resetSeenSlugs();
   const cached = getCache('home');
   if (cached) return res.json(cached);
   try {
-    const ot = streamProviders.find((p: any) => p.name === 'otakudesu');
-    let ongoing: any[] = [], completed: any[] = [];
-    if (ot) {
-      const [on, com] = await Promise.allSettled([
-        fetchWithTimeout(ot.search({ filter: { status: 'Ongoing' } })),
-        fetchWithTimeout(ot.search({ filter: { status: 'Completed' } }))
+    let ongoingList: any[] = [], completedList: any[] = [];
+    try {
+      const [otOn, otCom] = await Promise.allSettled([
+        fetchWithTimeout(otakudesu.search({ filter: { status: 'Ongoing' } })),
+        fetchWithTimeout(otakudesu.search({ filter: { status: 'Completed' } }))
       ]);
-      ongoing = (on.status === 'fulfilled' ? on.value.animes || [] : []).slice(0, 12).map(formatAnimeList).filter(Boolean);
-      completed = (com.status === 'fulfilled' ? com.value.animes || [] : []).slice(0, 10).map(formatAnimeList).filter(Boolean);
-    }
-    const result = createResponse({ ongoing: { animeList: ongoing }, completed: { animeList: completed } });
+      ongoingList = (otOn.status === 'fulfilled' ? otOn.value.animes || [] : []).slice(0, 12).map(formatAnimeList).filter(Boolean);
+      completedList = (otCom.status === 'fulfilled' ? otCom.value.animes || [] : []).slice(0, 10).map(formatAnimeList).filter(Boolean);
+    } catch {}
+    const result = createResponse({ ongoing: { animeList: ongoingList }, completed: { animeList: completedList } });
     setCache('home', result);
     res.json(result);
   } catch(e: any) { res.status(500).json({ status: "error", message: e.message }); }
@@ -327,7 +219,7 @@ app.get('/anime/schedule', async (req, res) => {
   try {
     const ot = streamProviders.find((p: any) => p.name === 'otakudesu');
     if (!ot) throw new Error('Otakudesu not available');
-    const days = ['senin','selasa','rabu','kamis','jumat','sabtu','minggu'];
+    const days = ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu', 'minggu'];
     const schedule = await Promise.all(days.map(async (day: string) => {
       try {
         const slugs: string[] = await ot.searchByDay(day);
@@ -357,7 +249,6 @@ app.get('/anime/skip/:slug', async (req, res) => {
   const malIdDB: Record<string, number> = { "one piece": 21, "naruto": 20, "demon slayer": 38000, "jujutsu kaisen": 40748, "attack on titan": 16498 };
   let malId = malIdDB[cleanName] || null;
   if (!malId) return res.status(404).json({ status: 'error', message: 'MAL ID tidak ditemukan', searched: cleanName });
-  const aniskip = providers.find((p: any) => p.name === 'aniskip');
   if (!aniskip) return res.status(502).json({ status: 'error', message: 'AniSkip tidak tersedia' });
   try {
     const timestamps = await aniskip.getTimestamps(malId, episode);
@@ -388,7 +279,7 @@ app.get('/anime/unlimited', async (req, res) => {
 
 app.get('/', (req, res) => {
   res.json({
-    status: "success", creator: "Animapi", version: "3.0.0",
+    status: "success", creator: "AnimAPI", version: "4.0.0",
     endpoints: {
       home: '/anime/home', ongoing: '/anime/ongoing-anime', completed: '/anime/complete-anime',
       search: '/anime/search/:keyword', detail: '/anime/anime/:slug', episode: '/anime/episode/:slug',
@@ -399,9 +290,4 @@ app.get('/', (req, res) => {
   });
 });
 
-loadProviders().then(() => {
-  app.listen(PORT, BIND_ADDR, () => console.log(`🚀 Server on port ${PORT}`));
-}).catch((err: Error) => {
-  console.error('Fatal:', err);
-  process.exit(1);
-});
+app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server on port ${PORT}`));
