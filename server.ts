@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import adminRouter from './admin.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -7,6 +8,8 @@ const BIND_ADDR = '0.0.0.0';
 
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use('/admin', adminRouter);
 
 // Cache
 const cache = new Map<string, { data: any; time: number }>();
@@ -19,7 +22,6 @@ const getCache = (key: string) => {
 const setCache = (key: string, data: any) => cache.set(key, { data, time: Date.now() });
 
 // Provider variables
-let Otakudesu: any, Animasu: any, AnimeIndo: any, Samehadaku: any, Anoboy: any, Jikan: any, AniSkip: any, Oploverz: any, Anichin: any, Nimegami: any, Mynimeku: any, KuroNime: any, Meownime: any, Doroni: any, Neonime: any, Lendrive: any, NontonAnimeID: any;
 const providers: any[] = [];
 const streamProviders: any[] = [];
 
@@ -145,18 +147,8 @@ async function loadProviders() {
   } catch(e) { console.warn('⚠️ Lendrive:', (e as Error).message); }
 
   try {
-    ({ AnimeID } = await import('./provider/animeid/index.js'));
-    const animeid = new AnimeID(); animeid.name = 'animeid';
-    providers.push(animeid); // AnimeID stream dinonaktifkan (IP tidak stabil)
-    console.log('✅ AnimeID (154.26.137.28)');
-  } catch(e) { console.warn('⚠️ AnimeID:', (e as Error).message); }
 
   try {
-    ({ NontonAnimeID } = await import('./provider/nontonanimeid/index.js'));
-    const nontonanimeid = new NontonAnimeID(); nontonanimeid.name = 'nontonanimeid';
-    providers.push(nontonanimeid); streamProviders.push(nontonanimeid);
-    console.log('✅ NontonAnimeID');
-  } catch(e) { console.warn('⚠️ NontonAnimeID:', (e as Error).message); }
 
   console.log(`🚀 ${providers.length} providers ready`);
 }
