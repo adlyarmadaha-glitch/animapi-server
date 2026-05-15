@@ -15,3 +15,4 @@ export { Doroni } from "./provider/doroni/index.js";
 export { Neonime } from "./provider/neonime/index.js";
 export { Lendrive } from "./provider/lendrive/index.js";
 export { NontonAnimeID } from "./provider/nontonanimeid/index.js";
+export { Animeisme } from "./provider/animeisme/index.js";
