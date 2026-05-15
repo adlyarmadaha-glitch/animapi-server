@@ -146,11 +146,6 @@ async function loadProviders() {
     providers.push(lendrive); streamProviders.push(lendrive);
     console.log('✅ Lendrive');
   } catch(e) { console.warn('⚠️ Lendrive:', (e as Error).message); }
-
-  try {
-
-  try {
-
   console.log(`🚀 ${providers.length} providers ready`);
 }
 
