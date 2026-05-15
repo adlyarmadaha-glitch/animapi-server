@@ -1,6 +1,5 @@
 import express from 'express';
 import cors from 'cors';
-import donghuaRoutes from './routes/donghua-routes.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -8,9 +7,6 @@ const BIND_ADDR = '0.0.0.0';
 
 app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use('/anime/donghua', donghuaRoutes);
-app.use('/donghua', donghuaRoutes);
 
 // Cache
 const cache = new Map<string, { data: any; time: number }>();
@@ -146,6 +142,11 @@ async function loadProviders() {
     providers.push(lendrive); streamProviders.push(lendrive);
     console.log('✅ Lendrive');
   } catch(e) { console.warn('⚠️ Lendrive:', (e as Error).message); }
+
+  try {
+
+  try {
+
   console.log(`🚀 ${providers.length} providers ready`);
 }
 
