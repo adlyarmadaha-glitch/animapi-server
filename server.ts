@@ -3,6 +3,46 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import morgan from 'morgan';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
+import fs from 'fs';
+import path from 'path';
+
+// Konfigurasi
+const DATA_DIR = path.join(process.cwd(), 'data');
+const configFile = path.join(DATA_DIR, 'config.json');
+const requestLogFile = path.join(DATA_DIR, 'requests.json');
+
+
+// Admin authentication helper
+function isAdmin(req: any): boolean {
+  const config = loadConfig();
+  return req.cookies?.adminAuth === config.adminKey;
+}
+
+function loadConfig() {
+  try { return JSON.parse(fs.readFileSync(configFile, 'utf-8')); }
+  catch { return { adminUser: 'admin', adminPass: 'animapi2025', bannedIPs: [], adminKey: 'animapi-admin-secret' }; }
+}
+function saveConfig(config: any) {
+  fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
+}
+function isIPBanned(ip: string): boolean {
+  return (loadConfig().bannedIPs || []).includes(ip);
+}
+
+function logRequest(data: any) {
+  try {
+    let logs = [];
+    try { logs = JSON.parse(fs.readFileSync(requestLogFile, 'utf-8')); } catch {}
+    logs.push({ ...data, time: new Date().toISOString() });
+    if (logs.length > 1000) logs = logs.slice(-500);
+    fs.writeFileSync(requestLogFile, JSON.stringify(logs, null, 2));
+  } catch {}
+}
+
+import rateLimit from 'express-rate-limit';
+import morgan from 'morgan';
+import helmet from 'helmet';
 import fs from 'fs';
 import path from 'path';
 
@@ -40,6 +80,48 @@ const BIND_ADDR = '0.0.0.0';
 
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+// 🔒 Security
+app.use(helmet({ contentSecurityPolicy: false }));
+
+// ⏱️ Rate Limiting
+const limiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  message: { status: 'error', message: 'Too many requests!' },
+  skip: (req) => req.path.startsWith('/admin') || req.path === '/',
+});
+app.use(limiter);
+
+// 🚫 IP Ban Checker
+app.use((req, res, next) => {
+  const ip = req.ip || req.socket.remoteAddress || '';
+  if (isIPBanned(ip)) {
+    return res.status(403).json({ status: 'error', message: 'IP kamu telah diblokir' });
+  }
+  next();
+});
+
+// 📝 Request Logger
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    logRequest({
+      method: req.method,
+      path: req.originalUrl,
+      status: res.statusCode,
+      ip: req.ip || req.socket.remoteAddress || '',
+      duration: Date.now() - start,
+    });
+  });
+  next();
+});
+
+// 📊 Morgan console log
+app.use(morgan(':method :url :status :response-time ms'));
+
 
 // 🔒 SECURITY MIDDLEWARE
 app.use(helmet({ contentSecurityPolicy: false })); // Security headers
@@ -477,17 +559,84 @@ app.get('/anime/unlimited', async (req, res) => {
   res.json(createResponse({ animeList: all }));
 });
 
+
 app.get('/', (req, res) => {
-  res.json({
-    status: "success", creator: "Animapi", version: "3.0.0",
-    endpoints: {
-      home: '/anime/home', ongoing: '/anime/ongoing-anime', completed: '/anime/complete-anime',
-      search: '/anime/search/:keyword', detail: '/anime/anime/:slug', episode: '/anime/episode/:slug',
-      genre: '/anime/genre', genre_anime: '/anime/genre/:slug', schedule: '/anime/schedule',
-      skip: '/anime/skip/:slug?episode=1', batch: '/anime/batch/:slug', server: '/anime/server/:serverId',
-      unlimited: '/anime/unlimited'
-    }
-  });
+  const baseUrl = req.protocol + '://' + req.get('host');
+  res.send(`
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AnimAPI - REST API Anime Indonesia</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #06060f; color: #d0d0d0; font-family: 'Segoe UI', system-ui, sans-serif; }
+    .hero { background: linear-gradient(135deg, #0a0020 0%, #000530 50%, #0a0020 100%); padding: 60px 20px 40px; text-align: center; border-bottom: 2px solid #1a1a4a; }
+    .hero h1 { font-size: 3em; background: linear-gradient(90deg, #e94560, #a855f7, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 10px; }
+    .hero p { color: #777; font-size: 1.1em; margin-bottom: 20px; }
+    .badges { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+    .badge { padding: 6px 16px; border-radius: 20px; font-size: 0.8em; font-weight: 600; }
+    .badge-green { background: #0f2d1a; color: #22c55e; border: 1px solid #22c55e; }
+    .badge-blue { background: #0f1e2d; color: #3b82f6; border: 1px solid #3b82f6; }
+    .badge-purple { background: #1a0d2d; color: #a855f7; border: 1px solid #a855f7; }
+    .badge-red { background: #2d0f0f; color: #ef4444; border: 1px solid #ef4444; }
+    .container { max-width: 900px; margin: 30px auto; padding: 0 20px; }
+    .section { background: #0a0a1a; border: 1px solid #1a1a3a; border-radius: 14px; padding: 20px; margin-bottom: 20px; }
+    .section h2 { color: #a855f7; font-size: 1em; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 14px; }
+    .endpoint { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; background: #0d0d22; border: 1px solid #15153a; border-radius: 10px; margin-bottom: 8px; transition: 0.2s; }
+    .endpoint:hover { border-color: #a855f7; transform: translateX(4px); }
+    .method { background: #22c55e; color: #000; padding: 4px 10px; border-radius: 6px; font-size: 0.7em; font-weight: 700; white-space: nowrap; }
+    .method-post { background: #f59e0b; color: #000; }
+    .info .path { color: #60a5fa; font-family: monospace; font-size: 0.9em; }
+    .info .desc { color: #666; font-size: 0.78em; margin-top: 3px; }
+    .provider-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+    .provider-tag { background: #0d0d22; border: 1px solid #1a1a3a; padding: 10px; border-radius: 10px; text-align: center; font-size: 0.8em; color: #a0a0c0; }
+    .base-url { background: #0d0d22; border: 1px solid #e94560; border-radius: 10px; padding: 14px; text-align: center; font-family: monospace; color: #e94560; font-size: 0.9em; word-break: break-all; margin-bottom: 20px; }
+    footer { text-align: center; padding: 30px; color: #333; border-top: 1px solid #1a1a2e; margin-top: 30px; }
+    .admin-link { color: #a855f7; text-decoration: none; font-weight: 600; }
+  </style>
+</head>
+<body>
+<div class="hero">
+  <h1>🎌 AnimAPI</h1>
+  <p>REST API Streaming Anime Indonesia — Multi-Provider, Gratis & Mandiri</p>
+  <div class="badges">
+    <span class="badge badge-green">✅ 16 Providers</span>
+    <span class="badge badge-blue">✅ Multi-Server</span>
+    <span class="badge badge-purple">✅ 360p-1080p</span>
+    <span class="badge badge-red">✅ Auto Skip Intro</span>
+  </div>
+</div>
+<div class="container">
+  <div class="base-url">🔗 ${baseUrl}</div>
+
+  <div class="section">
+    <h2>📺 Provider Tersedia</h2>
+    <div class="provider-grid">
+      ${['Otakudesu','Animasu','AnimeIndo','Samehadaku','Anoboy','Oploverz','Anichin','Nimegami','Mynimeku','KuroNime','Meownime','Doroni','Neonime','Lendrive','NontonAnimeID','Jikan'].map(p => `<div class="provider-tag">${p}</div>`).join('')}
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>📋 Endpoint API</h2>
+    <div class="endpoint"><span class="method">GET</span><div class="info"><div class="path">/anime/home</div><div class="desc">Ongoing & Completed anime</div></div></div>
+    <div class="endpoint"><span class="method">GET</span><div class="info"><div class="path">/anime/ongoing-anime?page=1</div><div class="desc">Anime sedang tayang</div></div></div>
+    <div class="endpoint"><span class="method">GET</span><div class="info"><div class="path">/anime/complete-anime?page=1</div><div class="desc">Anime sudah tamat</div></div></div>
+    <div class="endpoint"><span class="method">GET</span><div class="info"><div class="path">/anime/search/:keyword</div><div class="desc">Cari anime</div></div></div>
+    <div class="endpoint"><span class="method">GET</span><div class="info"><div class="path">/anime/anime/:slug</div><div class="desc">Detail anime + episode list</div></div></div>
+    <div class="endpoint"><span class="method">GET</span><div class="info"><div class="path">/anime/episode/:slug</div><div class="desc">Streaming URL (multi-server)</div></div></div>
+    <div class="endpoint"><span class="method">GET</span><div class="info"><div class="path">/anime/genre</div><div class="desc">Daftar genre</div></div></div>
+    <div class="endpoint"><span class="method">GET</span><div class="info"><div class="path">/anime/genre/:slug</div><div class="desc">Anime by genre</div></div></div>
+    <div class="endpoint"><span class="method">GET</span><div class="info"><div class="path">/anime/schedule</div><div class="desc">Jadwal rilis per hari</div></div></div>
+    <div class="endpoint"><span class="method">GET</span><div class="info"><div class="path">/anime/skip/:slug?episode=1</div><div class="desc">Timestamp skip intro</div></div></div>
+  </div>
+</div>
+<footer>AnimAPI v4.0 | <a href="/admin" class="admin-link">Admin Panel</a></footer>
+</body>
+</html>`);
+});
+
 });
 
 loadProviders().then(() => {
@@ -662,7 +811,7 @@ app.get('/admin/status', (req, res) => {
 });
 
 
-app.listen(PORT, BIND_ADDR, () => console.log(`🚀 Server on port ${PORT}`));
+undefined`🚀 Server on port ${PORT}`));
 }).catch((err: Error) => {
   console.error('Fatal:', err);
   process.exit(1);

@@ -1,1 +1,6 @@
-{"bannedIPs":[],"adminKey":"animapi-admin-2025"}
+{
+  "adminUser": "admin",
+  "adminPass": "animapi2025",
+  "bannedIPs": [],
+  "adminKey": "animapi-admin-secret"
+}

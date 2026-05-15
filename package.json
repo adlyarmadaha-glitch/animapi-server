@@ -13,6 +13,7 @@
     "axios": "^1.11.0",
     "axios-cookiejar-support": "^7.0.0",
     "cheerio": "^1.1.2",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dayjs": "^1.11.13",
     "express": "^4.21.0",
