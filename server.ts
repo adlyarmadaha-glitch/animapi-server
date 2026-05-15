@@ -1,6 +1,5 @@
 import express from 'express';
 import cors from 'cors';
-import adminRouter from './admin.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -8,8 +7,6 @@ const BIND_ADDR = '0.0.0.0';
 
 app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use('/admin', adminRouter);
 
 // Cache
 const cache = new Map<string, { data: any; time: number }>();
