@@ -238,6 +238,101 @@ async function loadProviders() {
     console.log('✅ Animenonton');
   } catch(e) { console.warn('⚠️ Animenonton:', (e as Error).message); }
 
+  try {
+    ({ Animeisme } = await import('./provider/animeisme/index.js'));
+    const animeisme = new Animeisme(); animeisme.name = 'animeisme';
+    providers.push(animeisme); streamProviders.push(animeisme);
+    console.log('✅ Animeisme');
+  } catch(e) { console.warn('⚠️ Animeisme:', (e as Error).message); }
+
+
+  try {
+    ({ RiiE } = await import('./provider/riie/index.js'));
+    const riie = new RiiE(); riie.name = 'riie';
+    providers.push(riie); streamProviders.push(riie);
+    console.log('✅ RiiE');
+  } catch(e) { console.warn('⚠️ RiiE:', (e as Error).message); }
+
+
+  try {
+    ({ AnimeindoCo } = await import('./provider/animeindoco/index.js'));
+    const animeindoco = new AnimeindoCo(); animeindoco.name = 'animeindoco';
+    providers.push(animeindoco); streamProviders.push(animeindoco);
+    console.log('✅ AnimeindoCo');
+  } catch(e) { console.warn('⚠️ AnimeindoCo:', (e as Error).message); }
+
+
+  try {
+    ({ Anibatch } = await import('./provider/anibatch/index.js'));
+    const anibatch = new Anibatch(); anibatch.name = 'anibatch';
+    providers.push(anibatch); streamProviders.push(anibatch);
+    console.log('✅ Anibatch');
+  } catch(e) { console.warn('⚠️ Anibatch:', (e as Error).message); }
+
+
+  try {
+    ({ Animehade } = await import('./provider/animehade/index.js'));
+    const animehade = new Animehade(); animehade.name = 'animehade';
+    providers.push(animehade); streamProviders.push(animehade);
+    console.log('✅ Animehade');
+  } catch(e) { console.warn('⚠️ Animehade:', (e as Error).message); }
+
+
+  try {
+    ({ Nanime } = await import('./provider/nanime/index.js'));
+    const nanime = new Nanime(); nanime.name = 'nanime';
+    providers.push(nanime); streamProviders.push(nanime);
+    console.log('✅ Nanime');
+  } catch(e) { console.warn('⚠️ Nanime:', (e as Error).message); }
+
+
+  try {
+    ({ AnimeYou } = await import('./provider/animeyou/index.js'));
+    const animeyou = new AnimeYou(); animeyou.name = 'animeyou';
+    providers.push(animeyou); streamProviders.push(animeyou);
+    console.log('✅ AnimeYou');
+  } catch(e) { console.warn('⚠️ AnimeYou:', (e as Error).message); }
+
+
+  try {
+    ({ Myanimeindo } = await import('./provider/myanimeindo/index.js'));
+    const myanimeindo = new Myanimeindo(); myanimeindo.name = 'myanimeindo';
+    providers.push(myanimeindo); streamProviders.push(myanimeindo);
+    console.log('✅ Myanimeindo');
+  } catch(e) { console.warn('⚠️ Myanimeindo:', (e as Error).message); }
+
+
+  try {
+    ({ Ruangotaku } = await import('./provider/ruangotaku/index.js'));
+    const ruangotaku = new Ruangotaku(); ruangotaku.name = 'ruangotaku';
+    providers.push(ruangotaku); streamProviders.push(ruangotaku);
+    console.log('✅ Ruangotaku');
+  } catch(e) { console.warn('⚠️ Ruangotaku:', (e as Error).message); }
+
+
+  try {
+    ({ Kotakanime } = await import('./provider/kotakanime/index.js'));
+    const kotakanime = new Kotakanime(); kotakanime.name = 'kotakanime';
+    providers.push(kotakanime); streamProviders.push(kotakanime);
+    console.log('✅ Kotakanime');
+  } catch(e) { console.warn('⚠️ Kotakanime:', (e as Error).message); }
+
+
+  try {
+    ({ Gomunime } = await import('./provider/gomunime/index.js'));
+    const gomunime = new Gomunime(); gomunime.name = 'gomunime';
+    providers.push(gomunime); streamProviders.push(gomunime);
+    console.log('✅ Gomunime');
+  } catch(e) { console.warn('⚠️ Gomunime:', (e as Error).message); }
+
+
+  try {
+    ({ Animenonton } = await import('./provider/animenonton/index.js'));
+    const animenonton = new Animenonton(); animenonton.name = 'animenonton';
+    providers.push(animenonton); streamProviders.push(animenonton);
+    console.log('✅ Animenonton');
+  } catch(e) { console.warn('⚠️ Animenonton:', (e as Error).message); }
+
 
   try {
     ({ AnimeID } = await import('./provider/animeid/index.js'));
