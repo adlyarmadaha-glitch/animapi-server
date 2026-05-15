@@ -1,36 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import rateLimit from 'express-rate-limit';
-import morgan from 'morgan';
-import helmet from 'helmet';
-import cookieParser from 'cookie-parser';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const DATA_DIR = path.join(__dirname, 'data');
-const configFile = path.join(DATA_DIR, 'config.json');
-const requestLogFile = path.join(DATA_DIR, 'requests.json');
-
-function loadConfig() {
-  try { return JSON.parse(fs.readFileSync(configFile, 'utf-8')); }
-  catch { return { adminUser: 'admin', adminPass: 'animapi2025', bannedIPs: [], adminKey: 'animapi-admin-secret' }; }
-}
-function saveConfig(cfg: any) { fs.writeFileSync(configFile, JSON.stringify(cfg, null, 2)); }
-function isIPBanned(ip: string): boolean { return (loadConfig().bannedIPs || []).includes(ip); }
-function isAdmin(req: any): boolean { return req.cookies?.adminAuth === loadConfig().adminKey; }
-
-function logRequest(data: any) {
-  try {
-    let logs = [];
-    try { logs = JSON.parse(fs.readFileSync(requestLogFile, 'utf-8')); } catch {}
-    logs.push({ ...data, time: new Date().toISOString() });
-    if (logs.length > 1000) logs = logs.slice(-500);
-    fs.writeFileSync(requestLogFile, JSON.stringify(logs, null, 2));
-  } catch {}
-}
+import adminRouter from './admin.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -38,26 +8,7 @@ const BIND_ADDR = '0.0.0.0';
 
 app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
-app.use(helmet({ contentSecurityPolicy: false }));
-
-const limiter = rateLimit({ windowMs: 60000, max: 100, message: { status: 'error', message: 'Too many requests!' }, skip: (req) => req.path.startsWith('/admin') || req.path === '/' });
-app.use(limiter);
-
-app.use((req, res, next) => {
-  const ip = req.ip || req.socket.remoteAddress || '';
-  if (isIPBanned(ip)) return res.status(403).json({ status: 'error', message: 'IP kamu telah diblokir' });
-  next();
-});
-
-app.use((req, res, next) => {
-  const start = Date.now();
-  res.on('finish', () => logRequest({ method: req.method, path: req.originalUrl, status: res.statusCode, ip: req.ip || req.socket.remoteAddress || '', duration: Date.now() - start }));
-  next();
-});
-
-app.use(morgan(':method :url :status :response-time ms'));
+app.use('/admin', adminRouter);
 
 // Cache
 const cache = new Map<string, { data: any; time: number }>();
@@ -449,50 +400,20 @@ app.get('/anime/unlimited', async (req, res) => {
 });
 
 app.get('/', (req, res) => {
-  const baseUrl = req.protocol + '://' + req.get('host');
-  res.send('<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>AnimAPI</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#06060f;color:#d0d0d0;font-family:system-ui,sans-serif}.hero{background:linear-gradient(135deg,#0a0020,#000530,#0a0020);padding:60px 20px 40px;text-align:center;border-bottom:2px solid #1a1a4a}.hero h1{font-size:3em;background:linear-gradient(90deg,#e94560,#a855f7,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}.container{max-width:900px;margin:30px auto;padding:0 20px}.section{background:#0a0a1a;border:1px solid #1a1a3a;border-radius:14px;padding:20px;margin-bottom:20px}.section h2{color:#a855f7;margin-bottom:14px}.endpoint{display:flex;gap:12px;padding:12px;background:#0d0d22;border:1px solid #15153a;border-radius:10px;margin-bottom:8px}.method{background:#22c55e;color:#000;padding:4px 10px;border-radius:6px;font-size:.7em;font-weight:700}.path{color:#60a5fa;font-family:monospace}.desc{color:#666;font-size:.78em;margin-top:3px}.base-url{background:#0d0d22;border:1px solid #e94560;border-radius:10px;padding:14px;text-align:center;font-family:monospace;color:#e94560;margin-bottom:20px}footer{text-align:center;padding:30px;color:#333;border-top:1px solid #1a1a2e}.admin-link{color:#a855f7;text-decoration:none;font-weight:600}</style></head><body><div class="hero"><h1>🎌 AnimAPI</h1><p>REST API Streaming Anime Indonesia — Multi-Provider, Gratis & Mandiri</p></div><div class="container"><div class="base-url">🔗 ' + baseUrl + '</div><div class="section"><h2>📋 Endpoint API</h2>' + ['/anime/home','/anime/ongoing-anime','/anime/complete-anime','/anime/search/:keyword','/anime/anime/:slug','/anime/episode/:slug','/anime/genre','/anime/genre/:slug','/anime/schedule','/anime/skip/:slug?episode=1'].map(p => '<div class="endpoint"><span class="method">GET</span><div class="info"><div class="path">' + p + '</div></div></div>').join('') + '</div></div><footer>AnimAPI v4.0 | <a href="/admin" class="admin-link">Admin Panel</a></footer></body></html>');
-});
+  res.json({
+    status: "success", creator: "Animapi", version: "3.0.0",
+    endpoints: {
+      home: '/anime/home', ongoing: '/anime/ongoing-anime', completed: '/anime/complete-anime',
+      search: '/anime/search/:keyword', detail: '/anime/anime/:slug', episode: '/anime/episode/:slug',
+      genre: '/anime/genre', genre_anime: '/anime/genre/:slug', schedule: '/anime/schedule',
+      skip: '/anime/skip/:slug?episode=1', batch: '/anime/batch/:slug', server: '/anime/server/:serverId',
+      unlimited: '/anime/unlimited'
+    }
+  });
 });
 
 loadProviders().then(() => {
-  
-app.get('/admin/login', (req, res) => {
-  res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Login Admin</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#06060f;display:flex;justify-content:center;align-items:center;min-height:100vh;font-family:system-ui}.login-box{background:#0a0a1a;border:1px solid #2a2a4a;border-radius:16px;padding:40px;width:380px;text-align:center}.login-box h1{font-size:2em;background:linear-gradient(90deg,#e94560,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:20px}input{width:100%;padding:12px;margin-bottom:12px;border:1px solid #2a2a4a;border-radius:8px;background:#0a0a15;color:#e0e0e0}input:focus{outline:none;border-color:#a855f7}button{width:100%;padding:12px;background:#a855f7;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer}button:hover{background:#9333ea}.error{color:#ef4444;margin-bottom:10px}</style></head><body><div class="login-box"><h1>🛡️ Admin</h1>' + (req.query.error ? '<div class="error">' + req.query.error + '</div>' : '') + '<form action="/admin/login" method="POST"><input name="username" placeholder="Username" required><input name="password" type="password" placeholder="Password" required><button>Login</button></form></div></body></html>');
-});
-
-app.post('/admin/login', (req, res) => {
-  const { username, password } = req.body;
-  const config = loadConfig();
-  if (username === config.adminUser && password === config.adminPass) {
-    res.cookie('adminAuth', config.adminKey, { maxAge: 86400000, httpOnly: true });
-    return res.redirect('/admin');
-  }
-  res.redirect('/admin/login?error=Username+atau+password+salah');
-});
-
-app.get('/admin', (req, res) => {
-  if (!isAdmin(req)) return res.redirect('/admin/login');
-  const ip = req.ip || req.socket.remoteAddress || '';
-  const config = loadConfig();
-  let logs = [];
-  try { logs = JSON.parse(fs.readFileSync(requestLogFile, 'utf-8')); } catch {}
-  const totalRequests = logs.length;
-  const uniqueIPs = [...new Set(logs.map(l => l.ip))].length;
-  const lastRequests = logs.slice(-20).reverse();
-  const bannedIPs = config.bannedIPs || [];
-  const ipCount = {};
-  logs.forEach(l => { ipCount[l.ip] = (ipCount[l.ip] || 0) + 1; });
-  const topIPs = Object.entries(ipCount).sort((a, b) => b[1] - a[1]).slice(0, 15);
-
-  res.send('<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Admin Dashboard</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#06060f;color:#d0d0d0;font-family:system-ui;padding:20px}.header{background:linear-gradient(135deg,#1a0033,#0d0d2b);padding:25px;border-radius:14px;margin-bottom:20px;border:1px solid #2a2a4a;display:flex;justify-content:space-between;align-items:center}.header h1{font-size:1.6em;background:linear-gradient(90deg,#e94560,#a855f7,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}.logout{color:#ef4444;text-decoration:none;font-weight:600}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:20px}.card{background:#0d0d22;border:1px solid #2a2a4a;border-radius:12px;padding:20px;text-align:center}.card .number{font-size:2.2em;font-weight:700;color:#a855f7}.card .label{color:#666;font-size:.8em;margin-top:4px}.section{background:#0d0d22;border:1px solid #2a2a4a;border-radius:12px;padding:20px;margin-bottom:20px}.section h2{color:#a855f7;font-size:1em;margin-bottom:12px}table{width:100%;border-collapse:collapse;font-size:.82em}th,td{padding:10px;text-align:left;border-bottom:1px solid #1a1a3a}th{color:#777}.btn{padding:7px 14px;border:none;border-radius:7px;cursor:pointer;font-weight:600;font-size:.82em;text-decoration:none}.btn-danger{background:#ef4444;color:#fff}.btn-success{background:#22c55e;color:#fff}.btn:hover{opacity:.8}.ip-tag{display:inline-flex;align-items:center;gap:8px;background:#1a1a3a;padding:4px 12px;border-radius:15px;font-size:.78em;margin:3px}.ip-tag a{color:#22c55e;text-decoration:none;font-weight:700}form{display:flex;gap:8px;margin-top:10px}input{flex:1;padding:10px;border:1px solid #2a2a4a;border-radius:8px;background:#0a0a15;color:#e0e0e0}</style></head><body><div class="header"><div><h1>🛡️ AnimAPI Admin</h1><span style="color:#666;font-size:.8em;">IP: ' + ip + '</span></div><a href="/admin/logout" class="logout">🚪 Logout</a></div><div class="grid"><div class="card"><div class="number">' + totalRequests + '</div><div class="label">Total Requests</div></div><div class="card"><div class="number">' + uniqueIPs + '</div><div class="label">Unique IPs</div></div><div class="card"><div class="number">' + bannedIPs.length + '</div><div class="label">Banned</div></div><div class="card"><div class="number">' + providers.length + '</div><div class="label">Providers</div></div></div><div class="section"><h2>🌐 Top IPs</h2><table><tr><th>IP</th><th>Req</th><th>Aksi</th></tr>' + topIPs.map(([ip, count]) => '<tr><td>' + ip + '</td><td>' + count + '</td><td>' + (bannedIPs.includes(ip) ? '<a href="/admin/unban?ip=' + ip + '" class="btn btn-success">Unban</a>' : '<a href="/admin/ban?ip=' + ip + '" class="btn btn-danger">Ban</a>') + '</td></tr>').join('') + '</table></div><div class="section"><h2>📝 Request Terakhir</h2><table><tr><th>Method</th><th>Path</th><th>IP</th><th>Time</th></tr>' + lastRequests.map(r => '<tr><td>' + r.method + '</td><td>' + (r.path||'').substring(0,50) + '</td><td>' + r.ip + '</td><td>' + (r.time||'').substring(11,19) + '</td></tr>').join('') + '</table></div><div class="section"><h2>🚫 Banned IPs</h2>' + (bannedIPs.length === 0 ? '<span style="color:#666">Tidak ada</span>' : bannedIPs.map(ip => '<span class="ip-tag">🚫 ' + ip + ' <a href="/admin/unban?ip=' + ip + '">✕</a></span>').join('')) + '<form action="/admin/ban"><input name="ip" placeholder="IP address..."><button class="btn btn-danger">Ban</button></form></div><div style="text-align:center;color:#444;margin-top:20px;">AnimAPI v4.0</div></body></html>');
-});
-
-app.get('/admin/logout', (req, res) => { res.clearCookie('adminAuth'); res.redirect('/admin/login'); });
-app.get('/admin/ban', (req, res) => { if (!isAdmin(req)) return res.redirect('/admin/login'); const ip = (req.query.ip||'').trim(); if (ip) { const cfg = loadConfig(); if (!cfg.bannedIPs.includes(ip)) { cfg.bannedIPs.push(ip); saveConfig(cfg); } } res.redirect('/admin'); });
-app.get('/admin/unban', (req, res) => { if (!isAdmin(req)) return res.redirect('/admin/login'); const ip = (req.query.ip||'').trim(); if (ip) { const cfg = loadConfig(); cfg.bannedIPs = cfg.bannedIPs.filter(i => i !== ip); saveConfig(cfg); } res.redirect('/admin'); });
-
-
-app.listen(PORT, BIND_ADDR, () => console.log(`🚀 Server on port ${PORT}`));
+  app.listen(PORT, BIND_ADDR, () => console.log(`🚀 Server on port ${PORT}`));
 }).catch((err: Error) => {
   console.error('Fatal:', err);
   process.exit(1);
