@@ -4,7 +4,6 @@ import { AnichinDonghua } from '../provider-donghua/anichin/index.js';
 const router = express.Router();
 const donghuaProvider = new AnichinDonghua();
 
-// Cache sederhana
 const cache = new Map<string, { data: any; time: number }>();
 const CACHE_TTL = 5 * 60 * 1000;
 const getCache = (key: string) => {
@@ -24,81 +23,118 @@ function createResponse(data: any, pagination: any = null) {
   };
 }
 
-// ==================== ENDPOINTS DONGHUA ====================
+function formatAnimeList(anime: any) {
+  return {
+    title: anime.title,
+    poster: anime.posterUrl,
+    animeId: anime.slug,
+    href: `/anime/donghua/detail/${anime.slug}`,
+    status: anime.status,
+    type: anime.type || "DONGHUA",
+    episodes: anime.episodes?.length || 0,
+    genreList: (anime.genres || []).map((g: any) => g.name),
+    source: anime.source,
+  };
+}
 
-// Home donghua (ongoing + latest)
-router.get('/home', async (req, res) => {
-  const key = 'donghua-home';
+// ========== HOME ==========
+router.get('/home/:page?', async (req, res) => {
+  const page = parseInt(req.params.page) || 1;
+  const key = `donghua-home-${page}`;
   const cached = getCache(key);
   if (cached) return res.json(cached);
 
   try {
-    const result = await donghuaProvider.search({ filter: { keyword: "" } });
-    const all = result.animes.map((a: any) => ({
-      title: a.title,
-      poster: a.posterUrl,
-      animeId: a.slug,
-      href: `/donghua/anime/${a.slug}`,
-      status: a.status,
-      type: a.type || "DONGHUA",
-      episodes: a.episodes?.length || 0,
-      genreList: (a.genres || []).map((g: any) => g.name),
-      source: a.source,
-    }));
-
-    const response = createResponse({ animeList: all });
-    setCache(key, response);
-    res.json(response);
-  } catch (e: any) {
-    res.status(500).json({ status: "error", message: e.message });
-  }
+    const result = await donghuaProvider.search({ filter: { page } });
+    res.json(createResponse(
+      { animeList: result.animes.map(formatAnimeList) },
+      { currentPage: page, hasNextPage: result.hasNext }
+    ));
+    setCache(key, result);
+  } catch (e: any) { res.status(500).json({ status: "error", message: e.message }); }
 });
 
-// Search donghua
-router.get('/search/:keyword', async (req, res) => {
-  const key = `donghua-search-${req.params.keyword}`;
+// ========== ONGOING ==========
+router.get('/ongoing/:page?', async (req, res) => {
+  const page = parseInt(req.params.page) || 1;
+  const key = `donghua-ongoing-${page}`;
   const cached = getCache(key);
   if (cached) return res.json(cached);
 
   try {
-    const result = await donghuaProvider.search({
-      filter: { keyword: req.params.keyword }
-    });
-    
-    const all = result.animes.map((a: any) => ({
-      title: a.title,
-      poster: a.posterUrl,
-      animeId: a.slug,
-      href: `/donghua/anime/${a.slug}`,
-      status: a.status,
-      type: a.type || "DONGHUA",
-      episodes: a.episodes?.length || 0,
-      genreList: (a.genres || []).map((g: any) => g.name),
-      source: a.source,
-    }));
-
-    const response = createResponse({ animeList: all });
-    setCache(key, response);
-    res.json(response);
-  } catch (e: any) {
-    res.status(500).json({ status: "error", message: e.message });
-  }
+    const result = await donghuaProvider.search({ filter: { status: "Ongoing", page } });
+    res.json(createResponse(
+      { animeList: result.animes.map(formatAnimeList) },
+      { currentPage: page, hasNextPage: result.hasNext }
+    ));
+    setCache(key, result);
+  } catch (e: any) { res.status(500).json({ status: "error", message: e.message }); }
 });
 
-// Detail donghua
-router.get('/anime/:slug', async (req, res) => {
-  const slug = req.params.slug;
+// ========== COMPLETED ==========
+router.get('/completed/:page?', async (req, res) => {
+  const page = parseInt(req.params.page) || 1;
+  const key = `donghua-completed-${page}`;
+  const cached = getCache(key);
+  if (cached) return res.json(cached);
+
+  try {
+    const result = await donghuaProvider.search({ filter: { status: "Completed", page } });
+    res.json(createResponse(
+      { animeList: result.animes.map(formatAnimeList) },
+      { currentPage: page, hasNextPage: result.hasNext }
+    ));
+    setCache(key, result);
+  } catch (e: any) { res.status(500).json({ status: "error", message: e.message }); }
+});
+
+// ========== LATEST ==========
+router.get('/latest/:page?', async (req, res) => {
+  const page = parseInt(req.params.page) || 1;
+  const key = `donghua-latest-${page}`;
+  const cached = getCache(key);
+  if (cached) return res.json(cached);
+
+  try {
+    const result = await donghuaProvider.search({ filter: { page } });
+    res.json(createResponse(
+      { animeList: result.animes.map(formatAnimeList) },
+      { currentPage: page, hasNextPage: result.hasNext }
+    ));
+    setCache(key, result);
+  } catch (e: any) { res.status(500).json({ status: "error", message: e.message }); }
+});
+
+// ========== SEARCH ==========
+router.get('/search/:keyword/:page?', async (req, res) => {
+  const { keyword } = req.params;
+  const page = parseInt(req.params.page) || 1;
+  const key = `donghua-search-${keyword}-${page}`;
+  const cached = getCache(key);
+  if (cached) return res.json(cached);
+
+  try {
+    const result = await donghuaProvider.search({ filter: { keyword, page } });
+    res.json(createResponse(
+      { animeList: result.animes.map(formatAnimeList) },
+      { currentPage: page, hasNextPage: result.hasNext }
+    ));
+    setCache(key, result);
+  } catch (e: any) { res.status(500).json({ status: "error", message: e.message }); }
+});
+
+// ========== DETAIL ==========
+router.get('/detail/:slug', async (req, res) => {
+  const { slug } = req.params;
   const key = `donghua-detail-${slug}`;
   const cached = getCache(key);
   if (cached) return res.json(cached);
 
   try {
     const detail = await donghuaProvider.detail(slug);
-    if (!detail?.title) {
-      return res.status(404).json({ status: "error", message: "Donghua tidak ditemukan" });
-    }
+    if (!detail?.title) return res.status(404).json({ status: "error", message: "Donghua tidak ditemukan" });
 
-    const response = createResponse({
+    res.json(createResponse({
       title: detail.title,
       poster: detail.posterUrl,
       animeId: detail.slug,
@@ -109,25 +145,19 @@ router.get('/anime/:slug', async (req, res) => {
       episodeList: (detail.episodes || []).map((e: any) => ({
         title: e.name,
         episodeId: e.slug,
-        href: `/donghua/episode/${e.slug}`,
+        href: `/anime/donghua/episode/${e.slug}`,
       })),
-    });
-    setCache(key, response);
-    res.json(response);
-  } catch (e: any) {
-    res.status(500).json({ status: "error", message: e.message });
-  }
+    }));
+    setCache(key, result);
+  } catch (e: any) { res.status(500).json({ status: "error", message: e.message }); }
 });
 
-// Episode donghua (streaming URL)
+// ========== EPISODE ==========
 router.get('/episode/:slug', async (req, res) => {
-  const slug = req.params.slug;
-
+  const { slug } = req.params;
   try {
     const streams = await donghuaProvider.streams(slug);
-    if (!streams.length) {
-      return res.status(502).json({ status: "error", message: "Stream tidak tersedia" });
-    }
+    if (!streams.length) return res.status(502).json({ status: "error", message: "Stream tidak tersedia" });
 
     res.json(createResponse({
       animeId: slug,
@@ -143,31 +173,63 @@ router.get('/episode/:slug', async (req, res) => {
         }],
       },
     }));
-  } catch (e: any) {
-    res.status(500).json({ status: "error", message: e.message });
-  }
+  } catch (e: any) { res.status(500).json({ status: "error", message: e.message }); }
 });
 
-// Genre donghua
-router.get('/genre', async (req, res) => {
-  const key = 'donghua-genre';
+// ========== GENRES LIST ==========
+router.get('/genres', async (req, res) => {
+  const key = 'donghua-genres';
   const cached = getCache(key);
   if (cached) return res.json(cached);
 
   try {
     const genres = await donghuaProvider.genres();
-    const response = createResponse({
+    res.json(createResponse({
       genreList: genres.map((g: any) => ({
         title: g.name,
         genreId: g.slug,
-        href: `/donghua/genre/${g.slug}`,
+        href: `/anime/donghua/genres/${g.slug}`,
       })),
-    });
-    setCache(key, response);
-    res.json(response);
-  } catch (e: any) {
-    res.status(500).json({ status: "error", message: e.message });
-  }
+    }));
+    setCache(key, result);
+  } catch (e: any) { res.status(500).json({ status: "error", message: e.message }); }
 });
 
-export default router;
+// ========== GENRES BY SLUG ==========
+router.get('/genres/:slug/:page?', async (req, res) => {
+  const { slug } = req.params;
+  const page = parseInt(req.params.page) || 1;
+  const key = `donghua-genre-${slug}-${page}`;
+  const cached = getCache(key);
+  if (cached) return res.json(cached);
+
+  try {
+    const result = await donghuaProvider.search({ filter: { genres: [slug], page } });
+    res.json(createResponse(
+      { animeList: result.animes.map(formatAnimeList) },
+      { currentPage: page, hasNextPage: result.hasNext }
+    ));
+    setCache(key, result);
+  } catch (e: any) { res.status(500).json({ status: "error", message: e.message }); }
+});
+
+// ========== SCHEDULE ==========
+router.get('/schedule', async (req, res) => {
+  // Placeholder: provider belum support schedule
+  res.json(createResponse({ message: "Schedule donghua belum tersedia", schedule: [] }));
+});
+
+// ========== AZ-LIST ==========
+router.get('/az-list/:slug/:page?', async (req, res) => {
+  const { slug } = req.params;
+  const page = parseInt(req.params.page) || 1;
+  // Placeholder: provider belum support AZ list
+  res.json(createResponse({ message: "AZ List donghua belum tersedia", animeList: [] }));
+});
+
+// ========== SEASONS ==========
+router.get('/seasons/:year?', async (req, res) => {
+  const year = req.params.year || new Date().getFullYear().toString();
+  // Placeholder: provider belum support seasons
+  res.json(createResponse({ message: "Seasons donghua belum tersedia", animeList: [] }));
+});
