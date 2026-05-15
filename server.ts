@@ -134,6 +134,12 @@ async function loadProviders() {
     providers.push(lendrive); streamProviders.push(lendrive);
     console.log('✅ Lendrive');
   } catch(e) { console.warn('⚠️ Lendrive:', (e as Error).message); }
+  try {
+    ({ Animeisme } = await import('./provider/animeisme/index.js'));
+    const animeisme = new Animeisme(); animeisme.name = 'animeisme';
+    providers.push(animeisme); streamProviders.push(animeisme);
+    console.log('✅ Animeisme');
+  } catch(e) { console.warn('⚠️ Animeisme:', (e as Error).message); }
 
   console.log('🚀 ${providers.length} providers ready');
 }
