@@ -67,7 +67,7 @@ async function loadProviders() {
   try {
     ({ Samehadaku } = await import('./provider/samehadaku/index.js'));
     const sm = new Samehadaku(); sm.name = 'samehadaku';
-    providers.push(sm); streamProviders.push(sm);
+    providers.push(sm); // stream dinonaktifkan sementara
     console.log('✅ Samehadaku');
   } catch(e) { console.warn('⚠️ Samehadaku:', (e as Error).message); }
 
